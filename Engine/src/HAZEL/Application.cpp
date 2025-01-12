@@ -1,4 +1,5 @@
 #include "Application.h"
+#include <iostream>
 
 namespace Hazel {
     Application::Application() {
@@ -8,5 +9,6 @@ namespace Hazel {
     }
 
     void Application::Run() {
+        std::cout << "Hello, World!" << std::endl;
     }
 }
