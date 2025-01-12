@@ -10,3 +10,11 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
+
+Engine/bin/
+Engine/build/
+Engine/.vscode/
+
+Sandbox/bin/
+Sandbox/build/
+Sandbox/.vscode/
