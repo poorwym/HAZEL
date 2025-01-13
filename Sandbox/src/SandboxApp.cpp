@@ -1,4 +1,4 @@
-#include "../../Engine/src/Hazel.h"
+#include <Hazel.h>
 
 class SandboxApp : public Hazel::Application
 {
@@ -12,11 +12,7 @@ public:
     }
 };
 
-int main()
+Hazel::Application* Hazel::CreateApplication()
 {
-    SandboxApp* app = new SandboxApp();
-    app->Run();
-    delete app;
-    return 0;
+    return new SandboxApp();
 }
-

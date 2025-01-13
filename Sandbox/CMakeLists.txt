@@ -1,15 +1,18 @@
 cmake_minimum_required(VERSION 3.20)
+set(CMAKE_CXX_STANDARD 17)
 project(Sandbox)
 
+# 设置输出目录
 set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/../bin/${CMAKE_BUILD_TYPE}-${CMAKE_SYSTEM_PROCESSOR}/${PROJECT_NAME})
 set(INT_DIR ${CMAKE_BINARY_DIR}/../bin/int/${CMAKE_BUILD_TYPE}-${CMAKE_SYSTEM_PROCESSOR}/${PROJECT_NAME})
 set(LIB_DIR ${CMAKE_BINARY_DIR}/../bin/${CMAKE_BUILD_TYPE}-${CMAKE_SYSTEM_PROCESSOR}/${PROJECT_NAME})
 # 设置源文件目录
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../Engine/src)
+# 设置 Engine 源文件目录
+set(ENGINE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../Engine/src)
 # 设置 Engine 库目录，此目录包含 .dll.a 文件
-set(ENGINE_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../Engine/bin/int/${CMAKE_BUILD_TYPE}-${CMAKE_SYSTEM_PROCESSOR}/Engine)
-# 设置输出目录
+set(ENGINE_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../Engine/bin/${CMAKE_BUILD_TYPE}-${CMAKE_SYSTEM_PROCESSOR}/Engine)
+set(VENDOR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../Engine/vendor)
 
 
 # 添加 Sandbox 源文件
@@ -21,18 +24,25 @@ add_executable(${PROJECT_NAME}
 link_directories(${ENGINE_LIB_DIR})
 
 # 链接 Engine 库
-target_link_libraries(${PROJECT_NAME} PRIVATE "${ENGINE_LIB_DIR}/libEngine.dll.a")
+target_link_libraries(${PROJECT_NAME} PRIVATE "${ENGINE_LIB_DIR}/libEngine.dylib")
 
 # 添加 Hazel 头文件路径
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-    ${INCLUDE_DIR}
+    ${SOURCE_DIR}
+    ${VENDOR_DIR}/spdlog/include
+)
+
+# 添加 Engine 头文件路径
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+    ${ENGINE_SRC_DIR}
 )
 
 # 复制 Hazel 库文件
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/../Engine/bin/Debug-AMD64/Engine/libEngine.dll"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../Engine/bin/${CMAKE_BUILD_TYPE}-${CMAKE_SYSTEM_PROCESSOR}/Engine/libEngine.dylib"
         $<TARGET_FILE_DIR:${PROJECT_NAME}>
 )
 

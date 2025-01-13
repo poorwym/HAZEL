@@ -14,7 +14,32 @@ CMakeUserPresets.json
 Engine/bin/
 Engine/build/
 Engine/.vscode/
+Engine/Engine.xcodeproj
 
 Sandbox/bin/
 Sandbox/build/
 Sandbox/.vscode/
+Sandbox/Sandbox.xcodeproj
+
+# Premake generated files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.xcodeproj
+*.xcworkspace
+*.make
+
+# Build directories
+bin/
+bin-int/
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+

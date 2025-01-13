@@ -1,16 +1,36 @@
 cmake_minimum_required(VERSION 3.20)
+set(CXX_STANDARD_REQUIRED 17)
+
 project(Engine)
+
+# 在项目开始处设置 C++ 标准
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 设置源文件目录
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(VENDOR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# 自动获取HAZEL目录下所有源文件
+file(GLOB_RECURSE HAZEL_SOURCES 
+    "${SOURCE_DIR}/HAZEL/*.cpp"
+    "${SOURCE_DIR}/HAZEL/*.h"
+    "${SOURCE_DIR}/Hazel.h"
+)
+
+# 输出找到的文件列表（可选，用于调试）
+message(STATUS "Found source files: ${HAZEL_SOURCES}")
 
 add_library(Engine SHARED
-    ${SOURCE_DIR}/HAZEL/Core.h
-    ${SOURCE_DIR}/HAZEL/Application.h
-    ${SOURCE_DIR}/HAZEL/Application.cpp
+    ${HAZEL_SOURCES}
+)
+
+target_include_directories(Engine PRIVATE
+    ${INCLUDE_DIR}
+    ${VENDOR_DIR}/spdlog/include
 )
 
 message(STATUS "build Engine")
