@@ -45,3 +45,23 @@ ehthumbs.db
 Thumbs.db
 
 .vscode/
+
+# Visual Studio files and directories
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.VC.opendb
+*.VC.opendb
+ipch/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ist/
+x64/
+x86/
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+

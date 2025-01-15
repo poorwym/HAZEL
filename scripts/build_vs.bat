@@ -1,11 +1,17 @@
 @echo off
+chcp 65001 > nul
+
+:: 确保在正确的目录中执行
+cd /d %~dp0\..
 
 :: 使用项目中的premake5
-set PREMAKE=vendor\bin\premake5.exe
+set PREMAKE=.\vendor\bin\premake5.exe
 
 :: 检查premake5是否存在
-if not exist %PREMAKE% (
+if not exist "%PREMAKE%" (
     echo 错误: 未找到premake5,请确保vendor\bin\premake5.exe文件存在
+    echo 当前目录: %CD%
+    dir .\vendor\bin
     pause
     exit /b 1
 )

@@ -1,7 +1,7 @@
 #pragma once 
 
+#include "hzpch.h"
 #include "Event.h"
-#include <sstream>
 
 namespace Hazel {
     //先写public，再写private，因为public是给用户看的，接口比内部实现更重要

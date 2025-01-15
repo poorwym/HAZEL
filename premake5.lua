@@ -13,23 +13,26 @@ workspace "Hazel"
     filter "system:macosx"
         xcodebuildsettings {
             ["MACOSX_DEPLOYMENT_TARGET"] = "10.15",
-            ["ALWAYS_SEARCH_USER_PATHS"] = "NO "
+            ["ALWAYS_SEARCH_USER_PATHS"] = "NO"
         }
 
-output_dir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+
+include "Engine/vendor/GLFW"
+
 IncludeDir = {}
-IncludeDir["GLFW"] = "vendor/GLFW/include"
+IncludeDir["GLFW"] = "Engine/vendor/GLFW/include"
 
 project "Engine"
     location "Engine"
     kind "SharedLib"
     language "C++"
     
-    targetdir ("bin/" .. output_dir .. "/%{prj.name}")
-    objdir ("bin-int/" .. output_dir .. "/%{prj.name}")
+    targetdir ("bin/" .. outputdir .. "/%{prj.name}")
+    objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
     pchheader "hzpch.h"
-    pchsource "src/hzpch.cpp"
+    pchsource "Engine/src/hzpch.cpp"
     
     files {
         "%{prj.name}/src/**.h",
@@ -38,21 +41,29 @@ project "Engine"
 
     includedirs {
         "%{prj.name}/src",
-        "%{prj.name}/vendor/spdlog/include"
+        "%{prj.name}/vendor/spdlog/include",
+        "%{IncludeDir.GLFW}"
+    }
+
+    links {
+        "GLFW",
+        "opengl32.lib"
     }
 
     filter "system:windows"
         cppdialect "C++17"
         staticruntime "On"
         systemversion "latest"
-
+        
+        buildoptions { "/utf-8" }
+        
         defines {
             "HAZEL_PLATFORM_WINDOWS",
             "HAZEL_BUILD_DLL"
         }
     
         postbuildcommands {
-            ("{COPY} %{cfg.buildtarget.relpath} ../bin/" .. output_dir .. "/Sandbox")
+            ("{COPY} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
         }
 
     filter "system:macosx"
@@ -65,8 +76,8 @@ project "Engine"
         }
 
         postbuildcommands {
-            ("{MKDIR} ../bin/" .. output_dir .. "/Sandbox"),
-            ("{COPY} %{cfg.buildtarget.relpath} ../bin/" .. output_dir .. "/Sandbox")
+            ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
+            ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
         }
 
     filter "configurations:Debug" 
@@ -89,8 +100,8 @@ project "Sandbox"
     kind "ConsoleApp"
     language "C++"
     
-    targetdir ("bin/" .. output_dir .. "/%{prj.name}")
-    objdir ("bin-int/" .. output_dir .. "/%{prj.name}")
+    targetdir ("bin/" .. outputdir .. "/%{prj.name}")
+    objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
     files{
         "%{prj.name}/src/**.h",
@@ -99,16 +110,23 @@ project "Sandbox"
 
     includedirs{
         "Engine/vendor/spdlog/include",
-        "Engine/src"
+        "Engine/src",
+        "%{IncludeDir.GLFW}"
+    }
+
+    links{
+        "Engine"
     }
 
     filter "system:windows"
         cppdialect "C++17"
         staticruntime "On"
         systemversion "latest"
+        
+        buildoptions { "/utf-8" }
 
         defines{
-            HAZEL_PLATFORM_WINDOWS
+            "HAZEL_PLATFORM_WINDOWS"
         }
 
     filter "system:macosx"
@@ -119,10 +137,6 @@ project "Sandbox"
         defines{
             "HAZEL_PLATFORM_MACOS",
         }
-
-    links{
-        "Engine"
-    }
 
     filter "configurations:Debug" 
         defines "HAZEL_DEBUG"
