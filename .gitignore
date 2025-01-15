@@ -33,6 +33,7 @@ Sandbox/Sandbox.xcodeproj
 # Build directories
 bin/
 bin-int/
+build/
 
 # System files
 .DS_Store
@@ -43,3 +44,4 @@ bin-int/
 ehthumbs.db
 Thumbs.db
 
+.vscode/

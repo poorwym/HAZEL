@@ -17,6 +17,8 @@ workspace "Hazel"
         }
 
 output_dir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+IncludeDir = {}
+IncludeDir["GLFW"] = "vendor/GLFW/include"
 
 project "Engine"
     location "Engine"
@@ -25,6 +27,9 @@ project "Engine"
     
     targetdir ("bin/" .. output_dir .. "/%{prj.name}")
     objdir ("bin-int/" .. output_dir .. "/%{prj.name}")
+
+    pchheader "hzpch.h"
+    pchsource "src/hzpch.cpp"
     
     files {
         "%{prj.name}/src/**.h",
@@ -32,6 +37,7 @@ project "Engine"
     }
 
     includedirs {
+        "%{prj.name}/src",
         "%{prj.name}/vendor/spdlog/include"
     }
 

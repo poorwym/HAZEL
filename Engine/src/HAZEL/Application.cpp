@@ -1,5 +1,6 @@
 #include "Application.h"
-#include <iostream>
+#include "Event/ApplicationEvent.h"
+#include "Log.h"
 
 namespace Hazel {
     Application::Application() {
@@ -9,6 +10,9 @@ namespace Hazel {
     }
 
     void Application::Run() {
+        WindowResizeEvent e(1920, 1080);
+        HAZEL_TRACE(e.ToString());
         std::cout << "Hello, World!" << std::endl;
+        //std::cout << e << std::endl;
     }
 }
