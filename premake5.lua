@@ -143,6 +143,10 @@ project "Engine"
         runtime "Debug"
         -- 开启调试符号
         symbols "On"
+        -- 指定使用多线程调试版本
+        buildoptions {
+            "/MDd"
+        }
 
     -- 针对 Release 配置的过滤器
     filter "configurations:Release"
@@ -152,6 +156,10 @@ project "Engine"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
+        -- 指定使用多线程版本
+        buildoptions {
+            "/MD"
+        }
 
     -- 针对 Dist 配置的过滤器
     filter "configurations:Dist"
@@ -161,6 +169,11 @@ project "Engine"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
+        -- 指定使用多线程版本
+        buildoptions {
+            "/MD"
+        }
+
 
 -- 定义名为 "Sandbox" 的项目
 project "Sandbox"
@@ -241,6 +254,10 @@ project "Sandbox"
         runtime "Debug"
         -- 开启调试符号
         symbols "On"
+        -- 指定使用多线程调试版本
+        buildoptions {
+            "/MDd"
+        }
 
     -- 针对 Release 配置的过滤器
     filter "configurations:Release"
@@ -250,6 +267,11 @@ project "Sandbox"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
+        -- 指定使用多线程版本
+        buildoptions {
+            "/MD"
+        }
+
 
     -- 针对 Dist 配置的过滤器
     filter "configurations:Dist"
@@ -259,3 +281,7 @@ project "Sandbox"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
+        -- 指定使用多线程版本
+        buildoptions {
+            "/MD"
+        }

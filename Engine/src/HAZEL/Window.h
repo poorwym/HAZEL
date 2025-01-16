@@ -23,9 +23,8 @@ namespace Hazel {
     class HAZEL_API Window {
     public:
         // 事件回调函数类型定义
-        // 接收一个Event引用作为参数,返回void
         // 用于处理窗口事件(如键盘输入、鼠标移动等)
-        using EventCallbackFn = std::function<void(Event&)>; // 回调函数
+        using EventCallbackFn = std::function<void(Event&)>; // 回调函数,接收一个Event引用作为参数,返回void
 
 
         // 窗口析构函数

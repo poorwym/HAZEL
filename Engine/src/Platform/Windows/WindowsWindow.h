@@ -6,7 +6,7 @@
 
 namespace Hazel {
     class HAZEL_API WindowsWindow : public Window {
-    // »ù±¾ÉÏ¾ÍÊÇ¶Ô³éÏó´°¿ÚµÄÒ»Ğ©ÊµÏÖ
+    // åŸºæœ¬ä¸Šå°±æ˜¯å¯¹æŠ½è±¡çª—å£çš„ä¸€äº›å®ç°
     public:
         WindowsWindow(const WindowProps& props);
         virtual ~WindowsWindow();
