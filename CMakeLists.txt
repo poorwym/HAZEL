@@ -5,10 +5,12 @@ project(Hazel)
 include(cmake/Common.cmake)
 
 # 添加子项目
+add_subdirectory(Engine/vendor/Glad)
 add_subdirectory(Engine/vendor/GLFW)
 add_subdirectory(Engine)
 add_subdirectory(Sandbox)
 
 # 设置构建顺序依赖
+add_dependencies(Engine glad)
 add_dependencies(Engine glfw)
 add_dependencies(Sandbox Engine)
