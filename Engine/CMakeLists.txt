@@ -61,10 +61,12 @@ if(WIN32)
     add_definitions(-DENGINE_EXPORTS)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
     target_compile_definitions(Engine PRIVATE HAZEL_BUILD_DLL)
+    target_compile_definitions(Engine PRIVATE GLFW_INCLUDE_NONE)
 endif()
 
 if(APPLE)
     target_compile_definitions(Engine PRIVATE HAZEL_BUILD_DLL)
+    target_compile_definitions(Engine PRIVATE GLFW_INCLUDE_NONE)
 endif()
 
 # 设置输出目录
@@ -76,6 +78,7 @@ print_project_info(Engine)
 target_link_libraries(Engine 
     PRIVATE 
     glfw
+    glad
 )
 
 

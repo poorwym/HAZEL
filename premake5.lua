@@ -31,10 +31,12 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 -- 包含 GLFW 第三方库的 Premake 脚本
 include "Engine/vendor/GLFW"
+include "Engine/vendor/Glad"
 
 -- 定义包含目录的表
 IncludeDir = {}
 IncludeDir["GLFW"] = "Engine/vendor/GLFW/include"
+IncludeDir["Glad"] = "Engine/vendor/Glad/include"
 
 -- 定义名为 "Engine" 的项目
 project "Engine"
@@ -65,22 +67,22 @@ project "Engine"
     includedirs {
         "%{prj.name}/src",
         "%{prj.name}/vendor/spdlog/include",
-        "%{IncludeDir.GLFW}"
+        "%{IncludeDir.GLFW}",
+        "%{IncludeDir.Glad}"
     }
 
     -- 确保 GLFW 在 Engine 之前构建
     dependson {
         "GLFW"
     }
-    
-    -- 链接的库文件，这里链接 GLFW 和 opengl32.lib
+
+     -- 链接的库文件，这里链接 GLFW 和 opengl32.lib
     links {
         "GLFW",
-        "opengl32.lib",
-        "ucrtd.lib",      -- Debug 模式下的 C 运行时
-        "msvcrtd.lib"     -- Debug 模式下的 C++ 运行时
+        "Glad",
+        "opengl32.lib"
     }
-
+    
     -- 针对 Windows 平台的过滤器
     filter "system:windows"
         -- 使用 C++17 标准
@@ -99,7 +101,8 @@ project "Engine"
         -- 定义宏，标识当前平台和构建 DLL
         defines {
             "HAZEL_PLATFORM_WINDOWS",
-            "HAZEL_BUILD_DLL"
+            "HAZEL_BUILD_DLL",
+            "GLFW_INCLUDE_NONE"
         }
     
         -- 后置构建命令，将生成的 DLL 复制到 Sandbox 项目的可执行文件目录
@@ -107,13 +110,7 @@ project "Engine"
             ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
         }
 
-        -- 链接的库文件，这里链接 GLFW 和 opengl32.lib
-        links {
-            "GLFW",
-            "opengl32.lib",
-            "ucrtd.lib",      -- Debug 模式下的 C 运行时
-            "msvcrtd.lib"     -- Debug 模式下的 C++ 运行时
-        }
+
 
     -- 针对 macOS 平台的过滤器
     filter "system:macosx"
@@ -126,7 +123,8 @@ project "Engine"
 
         -- 定义宏，标识当前平台
         defines {
-            "HAZEL_PLATFORM_MACOS"
+            "HAZEL_PLATFORM_MACOS",
+            "GLFW_INCLUDE_NONE"
         }
 
         -- 后置构建命令，创建 Sandbox 目录并复制生成的文件
@@ -199,7 +197,8 @@ project "Sandbox"
     includedirs{
         "Engine/vendor/spdlog/include",
         "Engine/src",
-        "%{IncludeDir.GLFW}"
+        "%{IncludeDir.GLFW}",
+        "%{IncludeDir.Glad}"
     }
 
     -- 确保 Engine 在 Sandbox 之前构建

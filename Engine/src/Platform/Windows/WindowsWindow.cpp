@@ -1,8 +1,9 @@
-#include "hzpch.h"
+﻿#include "hzpch.h"
 #include "WindowsWindow.h"
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Hazel/Events/KeyEvent.h"
 #include "Hazel/Events/MouseEvent.h"
+
 
 namespace Hazel {
     static bool s_GLFWInitialized = false;
@@ -60,7 +61,9 @@ namespace Hazel {
 
         m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
 
-        glfwMakeContextCurrent(m_Window);
+        glfwMakeContextCurrent(m_Window); // Make the window's context current
+        int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress); // Load OpenGL functions
+        HAZEL_CORE_ASSERT(status, "Failed to initialize Glad!");
         glfwSetWindowUserPointer(m_Window, &m_Data);
         SetVSync(true);
 
