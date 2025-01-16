@@ -8,10 +8,12 @@ set(VENDOR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 自动获取HAZEL目录下所有源文件
+# 自动获取所有源文件
 file(GLOB_RECURSE HAZEL_SOURCES 
     "${SOURCE_DIR}/Hazel/*.cpp"
     "${SOURCE_DIR}/Hazel/*.h"
+    "${SOURCE_DIR}/Platform/*.cpp"
+    "${SOURCE_DIR}/Platform/*.h"
     "${SOURCE_DIR}/Hazel.h"
     "${SOURCE_DIR}/Hazel/Event/*.h"
     "${SOURCE_DIR}/Hazel/Event/*.cpp"
@@ -31,7 +33,9 @@ add_library(Engine SHARED
 target_include_directories(Engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/HAZEL
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Platform
     ${INCLUDE_DIR}
+    ${VENDOR_DIR}/GLFW/include
     ${VENDOR_DIR}/spdlog/include
 )
 
@@ -68,6 +72,11 @@ set_project_output_directories(Engine)
 
 # 打印项目信息
 print_project_info(Engine)
+
+target_link_libraries(Engine 
+    PRIVATE 
+    glfw
+)
 
 
 

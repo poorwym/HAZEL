@@ -29,4 +29,40 @@
     #error HAZEL only supports Windows, Linux and Mac!
 #endif
 
+#ifdef HAZEL_ENABLE_ASSERTS
+    #ifdef HAZEL_PLATFORM_WINDOWS
+        #define HAZEL_ASSERT(x, ...)\
+        {\
+            if(!(x)){\
+                    HAZEL_ERROR("Assertion Failed: {0}", __VA_ARGS__);\
+                    __debugbreak();\
+                }
+        }\
+        #define HAZEL_CORE_ASSERT(x, ...)\
+        {\
+            if(!(x)){\
+                    HAZEL_CORE_ERROR("Assertion Failed: {0}", __VA_ARGS__);\
+                    __debugbreak();\
+                }
+        }
+    #elif defined(HAZEL_PLATFORM_MACOS) 
+        #define HAZEL_ASSERT(x, ...)\
+        {\
+            if(!(x)){\
+                    HAZEL_ERROR("Assertion Failed: {0}", __VA_ARGS__);\
+                    __builtin_trap();\
+                }
+        }\
+        #define HAZEL_CORE_ASSERT(x, ...)\
+        {\
+            if(!(x)){\
+                    HAZEL_CORE_ERROR("Assertion Failed: {0}", __VA_ARGS__);\
+                    __builtin_trap();\
+                }
+        }
+    #endif
+#else
+    #define HAZEL_ASSERT(x, ...)
+    #define HAZEL_CORE_ASSERT(x, ...)
+#endif
 #define BIT(x) (1 << x)

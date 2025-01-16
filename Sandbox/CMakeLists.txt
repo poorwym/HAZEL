@@ -55,7 +55,7 @@ if(APPLE)
 elseif(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${ENGINE_LIB_DIR}/Engine.dll"
+            "${ENGINE_LIB_DIR}/libEngine.dll"
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
     )
 else()
