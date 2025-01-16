@@ -1,11 +1,8 @@
 #pragma once
-
+#include "hzpch.h"
 #include "Hazel/Core.h"
-#include <string>
-#include <iostream>
-#include <functional>
-#include <sstream>
 #include "Hazel/Log.h"
+#include "spdlog/fmt/fmt.h"
 
 
 namespace Hazel {
@@ -77,10 +74,14 @@ namespace Hazel {
         bool IsInCategory(EventCategory category) {
             return GetCategoryFlags() & category;
         }
+        bool IsHandled() const { return m_Handled; }
     protected:
         bool m_Handled = false;
     };
-
+    // 事件分发器类
+    // 用于处理和分发不同类型的事件
+    // 通过模板函数Dispatch实现事件的动态分发
+    // 可以根据事件类型调用相应的处理函数
     class HAZEL_API EventDispatcher {
         template<typename T>
         using EventFn = std::function<bool(T&)>;
@@ -107,3 +108,7 @@ namespace Hazel {
         return (os << e.ToString());
     }
 }
+
+
+template <>
+struct fmt::formatter<Hazel::Event> : fmt::ostream_formatter {};

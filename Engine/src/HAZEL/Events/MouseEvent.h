@@ -1,7 +1,7 @@
 #pragma once 
 
+#include "hzpch.h"
 #include "Event.h"
-#include <sstream>
 
 namespace Hazel {
     //先写public，再写private，因为public是给用户看的，接口比内部实现更重要
@@ -71,9 +71,9 @@ namespace Hazel {
         EVENT_CLASS_TYPE(EventType::MouseButtonPressed);
     };
 
-    class HAZEL_API MouseButtonRleasedEvent : public MouseButtonEvent{
+    class HAZEL_API MouseButtonReleasedEvent : public MouseButtonEvent{
     public:
-        MouseButtonRleasedEvent(const int button)
+        MouseButtonReleasedEvent(const int button)
         :MouseButtonEvent(button){}
 
         std::string ToString() const override {
