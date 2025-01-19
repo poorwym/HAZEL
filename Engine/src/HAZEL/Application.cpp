@@ -1,11 +1,18 @@
 #include "hzpch.h"
 #include "Application.h"
 #include "Log.h"
+#include <gl/GL.h>
 
 namespace Hazel {
+
 // 这里绑定要this的原因是成员函数需要具体实例才能运行
 #define BIND_EVENT_FN(x) std::bind(&Application::x, this, std::placeholders::_1)
+
+    Application* Application::s_Instance = nullptr;
+
     Application::Application() {
+        HAZEL_CORE_ASSERT(!s_Instance, "Application already exists!");
+        s_Instance = this;
         m_Window = std::unique_ptr<Window>(Window::Create());
         m_Window->SetEventCallback(BIND_EVENT_FN(OnEvent));
     }
@@ -15,6 +22,7 @@ namespace Hazel {
 
     void Application::Run() {
         while (m_Running) { 
+            glClear(GL_COLOR_BUFFER_BIT);
             // 这里从begin开始渲染，到end结束渲染。
             for (Layer* layer : m_LayerStack) {
                 layer->OnUpdate();

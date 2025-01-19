@@ -75,8 +75,15 @@ set_project_output_directories(Engine)
 # 打印项目信息
 print_project_info(Engine)
 
+# 下面这两句不加上就不能使用opengl的函数,但是可以使用glfw的函数
+# 查找OpenGL库
+find_package(OpenGL REQUIRED)
+# 链接OpenGL库
+target_link_libraries(Engine PRIVATE OpenGL::GL)
+
 target_link_libraries(Engine 
     PRIVATE 
+    imgui
     glfw
     glad
 )
