@@ -18,7 +18,7 @@ namespace Hazel {
 		// Overlay永远在Layer的上面
 		void PushLayer(Layer* layer);
 		void PushOverlay(Layer* overlay);
-		void PopLayer(Layer* layer);
+		void PopLayer(Layer* layer); 
 		void PopOverlay(Layer* overlay);
 
 		std::vector<Layer*>::iterator begin() { return m_Layers.begin(); }

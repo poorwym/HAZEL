@@ -21,12 +21,12 @@ namespace Hazel {
     // MouseButtonPressed - 鼠标按键按下事件
     // MouseButtonReleased - 鼠标按键释放事件
     // MouseMoved - 鼠标移动事件
-    // MouseScrolled - 鼠标滚轮事件
+    // MouseScrolledEvent - 鼠标滚轮事件
     enum class EventType{
         None = 0,
         WindowClose, WindowResize, WindowFocus, WindowLostFocus, WindowMoved,
         AppTick, AppUpdate, AppRender,
-        KeyPressed, KeyReleased,
+        KeyPressed, KeyReleased, KeyTyped,
         MouseButtonPressed, MouseButtonReleased, MouseMoved, MouseScrolled
     };
 

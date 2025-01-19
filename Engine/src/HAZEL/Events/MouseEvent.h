@@ -5,9 +5,9 @@
 
 namespace Hazel {
     //先写public，再写private，因为public是给用户看的，接口比内部实现更重要
-    class HAZEL_API MouseMovement : public Event{
+    class HAZEL_API MouseMovedEvent : public Event{
     public:
-        MouseMovement(float x, float y)
+        MouseMovedEvent(float x, float y)
         :m_MouseX(x), m_MouseY(y){}
 
         inline float GetX() const { return m_MouseX; }
@@ -25,9 +25,9 @@ namespace Hazel {
         float m_MouseX, m_MouseY;
     };
 
-    class HAZEL_API MouseScrolled : public Event{
+    class HAZEL_API MouseScrolledEvent : public Event{
     public:
-        MouseScrolled(float xOffset, float yOffset)
+        MouseScrolledEvent(float xOffset, float yOffset)
         :m_XOffset(xOffset), m_YOffset(yOffset){}
 
         inline float GetXOffset() const { return m_XOffset; }

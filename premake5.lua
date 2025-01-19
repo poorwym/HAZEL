@@ -32,11 +32,13 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 -- 包含 GLFW 第三方库的 Premake 脚本
 include "Engine/vendor/GLFW"
 include "Engine/vendor/Glad"
+include "Engine/vendor/imgui"
 
 -- 定义包含目录的表
 IncludeDir = {}
 IncludeDir["GLFW"] = "Engine/vendor/GLFW/include"
 IncludeDir["Glad"] = "Engine/vendor/Glad/include"
+IncludeDir["ImGui"] = "Engine/vendor/imgui"
 
 -- 定义名为 "Engine" 的项目
 project "Engine"
@@ -68,7 +70,8 @@ project "Engine"
         "%{prj.name}/src",
         "%{prj.name}/vendor/spdlog/include",
         "%{IncludeDir.GLFW}",
-        "%{IncludeDir.Glad}"
+        "%{IncludeDir.Glad}",
+        "%{IncludeDir.ImGui}"
     }
 
     -- 确保 GLFW 在 Engine 之前构建
@@ -80,7 +83,8 @@ project "Engine"
     links {
         "GLFW",
         "Glad",
-        "opengl32.lib"
+        "opengl32.lib",
+        "ImGui"
     }
     
     -- 针对 Windows 平台的过滤器
@@ -141,10 +145,6 @@ project "Engine"
         runtime "Debug"
         -- 开启调试符号
         symbols "On"
-        -- 指定使用多线程调试版本
-        buildoptions {
-            "/MDd"
-        }
 
     -- 针对 Release 配置的过滤器
     filter "configurations:Release"
@@ -154,10 +154,6 @@ project "Engine"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
-        -- 指定使用多线程版本
-        buildoptions {
-            "/MD"
-        }
 
     -- 针对 Dist 配置的过滤器
     filter "configurations:Dist"
@@ -167,10 +163,6 @@ project "Engine"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
-        -- 指定使用多线程版本
-        buildoptions {
-            "/MD"
-        }
 
 
 -- 定义名为 "Sandbox" 的项目
@@ -236,7 +228,7 @@ project "Sandbox"
         -- 使用 C++17 标准
         cppdialect "C++17"
         -- 静态运行时
-        staticruntime "On"
+        staticruntime "Off"
         -- 使用最新可用的 macOS SDK
         systemversion "latest"
 
@@ -253,10 +245,6 @@ project "Sandbox"
         runtime "Debug"
         -- 开启调试符号
         symbols "On"
-        -- 指定使用多线程调试版本
-        buildoptions {
-            "/MDd"
-        }
 
     -- 针对 Release 配置的过滤器
     filter "configurations:Release"
@@ -266,10 +254,6 @@ project "Sandbox"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
-        -- 指定使用多线程版本
-        buildoptions {
-            "/MD"
-        }
 
 
     -- 针对 Dist 配置的过滤器
@@ -280,7 +264,3 @@ project "Sandbox"
         runtime "Release"
         -- 开启编译优化
         optimize "On"
-        -- 指定使用多线程版本
-        buildoptions {
-            "/MD"
-        }
