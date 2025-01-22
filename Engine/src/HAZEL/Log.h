@@ -1,4 +1,8 @@
-#pragma once
+﻿#pragma once
+/**
+ * @note:   这里是一个log，分为Core和Client，
+ *          Core是引擎的log，Client是客户端的log。
+ */
 #include "hzpch.h"
 #include "Core.h"
 #include <spdlog/spdlog.h>

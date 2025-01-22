@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 // 超级煞笔的平台检测，bydIDE看不到预定义宏只好手动再定义，其实注释掉下面这些一点关系也没有
 #if defined(_WIN32) || defined(_WIN64)
     #ifndef HAZEL_PLATFORM_WINDOWS
@@ -65,6 +65,7 @@
     #define HAZEL_ASSERT(x, ...)
     #define HAZEL_CORE_ASSERT(x, ...)
 #endif
+// 宏，用于计算二进制位
 #define BIT(x) (1 << x)
-
+// 宏，用于绑定事件
 #define HAZEL_BIND_EVENT_FN(fn) std::bind(&fn, this, std::placeholders::_1)

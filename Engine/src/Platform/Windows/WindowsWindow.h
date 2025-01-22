@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Hazel/Window.h"
 
@@ -21,6 +21,9 @@ namespace Hazel {
         inline void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; };
         void SetVSync(bool enabled) override;
         bool IsVSync() const override;
+
+        // 获取原生窗口
+        inline virtual void* GetNativeWindow() const { return m_Window; };
     private:
         virtual void Init(const WindowProps& props);
         virtual void Shutdown();

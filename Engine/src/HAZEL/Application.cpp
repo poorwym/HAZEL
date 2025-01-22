@@ -1,7 +1,8 @@
-#include "hzpch.h"
+﻿#include "hzpch.h"
 #include "Application.h"
 #include "Log.h"
 #include <gl/GL.h>
+#include "Hazel/Input.h"
 
 namespace Hazel {
 
@@ -34,7 +35,7 @@ namespace Hazel {
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(OnWindowClose));
-        HAZEL_CORE_TRACE("{0}", e);
+        //HAZEL_CORE_TRACE("{0}", e);
 
         // 这里从end开始处理事件，到这个处理结束为止。
         for (auto it = m_LayerStack.end(); it != m_LayerStack.begin();) {
@@ -43,6 +44,9 @@ namespace Hazel {
                 break;
             }
         }
+
+        auto [x, y] = Input::GetMousePosition();
+        HAZEL_CORE_TRACE("{0}, {1}", x, y);
     }
 
     void Application::PushLayer(Layer* layer)

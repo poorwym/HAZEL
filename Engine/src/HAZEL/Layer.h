@@ -1,5 +1,7 @@
-#pragma once
-
+﻿#pragma once
+/**
+ * @note: Layer是一个基类，没啥实现的东西，就是定义接口。
+ */
 #include "Hazel/Core.h"
 #include "Hazel/Events/Event.h"
 

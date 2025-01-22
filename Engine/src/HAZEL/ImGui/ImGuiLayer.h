@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Hazel/Layer.h"
 #include "Hazel/Events/ApplicationEvent.h"

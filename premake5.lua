@@ -111,6 +111,7 @@ project "Engine"
     
         -- 后置构建命令，将生成的 DLL 复制到 Sandbox 项目的可执行文件目录
         postbuildcommands {
+            ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
             ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
         }
 
