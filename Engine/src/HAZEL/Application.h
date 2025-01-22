@@ -7,6 +7,7 @@
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Window.h"
 #include "LayerStack.h"
+#include "Hazel/ImGui/ImGuiLayer.h"
 
 namespace Hazel {
     /**
@@ -68,6 +69,7 @@ namespace Hazel {
         bool OnWindowClose(WindowCloseEvent& e);
 
         std::unique_ptr<Window> m_Window;      // 应用程序窗口的智能指针
+        ImGuiLayer* m_ImGuiLayer; // 
         bool m_Running = true;                 // 应用程序运行状态标志
         LayerStack m_LayerStack;              // 层栈，用于管理应用程序的各个层
 

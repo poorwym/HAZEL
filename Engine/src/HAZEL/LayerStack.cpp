@@ -5,7 +5,6 @@ namespace Hazel {
 
 	LayerStack::LayerStack()
 	{
-		m_LayerInsert = m_Layers.begin();
 	}
 
 	LayerStack::~LayerStack()
@@ -19,7 +18,8 @@ namespace Hazel {
 
 	void LayerStack::PushLayer(Layer* layer)
 	{
-        m_LayerInsert = m_Layers.emplace(m_LayerInsert, layer); // 在m_LayerInsert位置插入layer
+        m_Layers.emplace(m_Layers.begin() + m_LayerInsertIndex, layer); // 在m_LayerInsert位置插入layer
+		m_LayerInsertIndex++;
         layer->OnAttach();
 	}
 
@@ -35,7 +35,7 @@ namespace Hazel {
         if (it != m_Layers.end())
         {
             m_Layers.erase(it); // 删除layer
-            m_LayerInsert--; // 将m_LayerInsert向前移动
+            m_LayerInsertIndex--; // 将m_LayerInsert向前移动
         }
 	}
 

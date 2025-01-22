@@ -26,7 +26,8 @@ namespace Hazel {
 		std::vector<Layer*>::iterator end() { return m_Layers.end(); }
 	private:
 		std::vector<Layer*> m_Layers;
-		std::vector<Layer*>::iterator m_LayerInsert;
+		// std::vector<Layer*>::iterator m_LayerInsert; //这里不再使用iterator是因为如果利用iterator记录layer和overlay的分界线，vector移动后iterator指向的地址会失效
+
 		unsigned int m_LayerInsertIndex = 0;
 	};
 };

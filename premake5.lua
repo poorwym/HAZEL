@@ -39,6 +39,7 @@ IncludeDir = {}
 IncludeDir["GLFW"] = "Engine/vendor/GLFW/include"
 IncludeDir["Glad"] = "Engine/vendor/Glad/include"
 IncludeDir["ImGui"] = "Engine/vendor/imgui"
+IncludeDir["glm"] = "Engine/vendor/glm"
 
 -- 定义名为 "Engine" 的项目
 project "Engine"
@@ -71,7 +72,8 @@ project "Engine"
         "%{prj.name}/vendor/spdlog/include",
         "%{IncludeDir.GLFW}",
         "%{IncludeDir.Glad}",
-        "%{IncludeDir.ImGui}"
+        "%{IncludeDir.ImGui}",
+        "%{IncludeDir.glm}"
     }
 
     -- 确保 GLFW 在 Engine 之前构建
@@ -183,15 +185,16 @@ project "Sandbox"
     -- 包含当前项目的所有 .h 和 .cpp 文件
     files{
         "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp"
+        "%{prj.name}/src/**.cpp",
+        "%{prj.name}/vendor/glm/glm/**.hpp",
+        "%{prj.name}/vendor/glm/glm/**.inl"
     }
 
     -- 包含目录列表
     includedirs{
         "Engine/vendor/spdlog/include",
         "Engine/src",
-        "%{IncludeDir.GLFW}",
-        "%{IncludeDir.Glad}"
+        "%{IncludeDir.glm}"
     }
 
     -- 确保 Engine 在 Sandbox 之前构建
