@@ -17,16 +17,20 @@
 #endif
 
 // 定义宏，用于导入导出API
-#ifdef HAZEL_PLATFORM_WINDOWS
-    #ifdef HAZEL_BUILD_DLL
-        #define HAZEL_API __declspec(dllexport) // 导出API
+#ifdef HAZEL_DYNAMIC_LINK
+    #ifdef HAZEL_PLATFORM_WINDOWS
+        #ifdef HAZEL_BUILD_DLL
+            #define HAZEL_API __declspec(dllexport) // 导出API
+        #else
+            #define HAZEL_API __declspec(dllimport) // 导入API
+        #endif
+    #elif defined(HAZEL_PLATFORM_MACOS) || defined(HAZEL_PLATFORM_LINUX)
+        #define HAZEL_API __attribute__((visibility("default"))) // 导出API
     #else
-        #define HAZEL_API __declspec(dllimport) // 导入API
+        #error HAZEL only supports Windows, Linux and Mac!
     #endif
-#elif defined(HAZEL_PLATFORM_MACOS) || defined(HAZEL_PLATFORM_LINUX)
-    #define HAZEL_API __attribute__((visibility("default"))) // 导出API
 #else
-    #error HAZEL only supports Windows, Linux and Mac!
+    #define HAZEL_API
 #endif
 
 #ifdef HAZEL_ENABLE_ASSERTS

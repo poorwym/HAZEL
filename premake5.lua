@@ -47,15 +47,17 @@ project "Engine"
     location "Engine"
 
     -- 生成的目标类型为共享库（dll）
-     kind "SharedLib"
+    -- kind "SharedLib"
 
     -- 生成的目标类型为静态库
-    --kind "StaticLib"
+    kind "StaticLib"
 
     -- 静态运行时
-    staticruntime "off"
+    staticruntime "Off"
+
     -- 指定使用 C++ 语言
     language "C++"
+    -- 使用 C++17 标准
     cppdialect "C++17"
     
     -- 设置最终生成的二进制文件目录
@@ -113,14 +115,15 @@ project "Engine"
         defines {
             "HAZEL_PLATFORM_WINDOWS",
             "HAZEL_BUILD_DLL",
-            "GLFW_INCLUDE_NONE"
+            "GLFW_INCLUDE_NONE", -- 禁用 GLFW 的默认包含路径，防止与Glad冲突
+            "_CRT_SECURE_NO_WARNINGS" -- 禁用 CRT 安全警告
         }
     
         -- 后置构建命令，将生成的 DLL 复制到 Sandbox 项目的可执行文件目录
-        postbuildcommands {
-            ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
-            ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
-        }
+        --postbuildcommands {
+        --     ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
+        --     ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
+        -- }
 
 
 
@@ -136,10 +139,10 @@ project "Engine"
         }
 
         -- 后置构建命令，创建 Sandbox 目录并复制生成的文件
-        postbuildcommands {
-            ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
-            ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
-        }
+        -- postbuildcommands {
+        --     ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
+        --     ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
+        -- }
 
     -- 针对 Debug 配置的过滤器
     filter "configurations:Debug" 
