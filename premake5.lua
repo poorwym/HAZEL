@@ -45,10 +45,18 @@ IncludeDir["glm"] = "Engine/vendor/glm"
 project "Engine"
     -- 指定项目在解决方案中的位置
     location "Engine"
+
     -- 生成的目标类型为共享库（dll）
-    kind "SharedLib"
+     kind "SharedLib"
+
+    -- 生成的目标类型为静态库
+    --kind "StaticLib"
+
+    -- 静态运行时
+    staticruntime "off"
     -- 指定使用 C++ 语言
     language "C++"
+    cppdialect "C++17"
     
     -- 设置最终生成的二进制文件目录
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
@@ -91,10 +99,7 @@ project "Engine"
     
     -- 针对 Windows 平台的过滤器
     filter "system:windows"
-        -- 使用 C++17 标准
-        cppdialect "C++17"
-        -- 静态运行时
-        staticruntime "Off"
+
         -- 使用最新可用的 Windows SDK
         systemversion "latest"
         
@@ -121,10 +126,6 @@ project "Engine"
 
     -- 针对 macOS 平台的过滤器
     filter "system:macosx"
-        -- 使用 C++17 标准
-        cppdialect "C++17"
-        -- 静态运行时
-        staticruntime "On"
         -- 使用最新可用的 macOS SDK
         systemversion "latest"
 
