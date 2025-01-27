@@ -75,6 +75,7 @@ namespace Hazel {
 
     private:
         static Application* s_Instance;        // 应用程序的单例实例指针
+        unsigned int m_VertexArray,m_VertexBuffer,m_IndexBuffer;
     };
 
     /**
