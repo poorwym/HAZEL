@@ -1,5 +1,11 @@
-#pragma once
-
+﻿#pragma once
+/**
+ * @note:   这里是一个纯虚基类，用于定义窗口接口。
+ *          窗口类是一个抽象类，它定义了窗口的属性和行为。
+ *          窗口类提供了窗口的创建、更新、事件处理等基本功能。
+ *          子类必须实现这些功能，以实现具体的窗口功能。
+ *          这里之所以使用抽象类是因为不希望任何依赖于平台或者外界vendor的代码来实现，增加了代码的灵活性和可维护性。
+ */
 #include "hzpch.h"
 
 #include "Hazel/Core.h"
@@ -52,6 +58,8 @@ namespace Hazel {
         // 获取垂直同步状态
         // @return 返回是否启用了垂直同步
         virtual bool IsVSync() const = 0;
+
+        virtual void* GetNativeWindow() const = 0;
 
 
         // 创建窗口的静态工厂方法

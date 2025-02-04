@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "hzpch.h"
 #include "Hazel/Core.h"
 #include "Hazel/Log.h"
@@ -109,6 +109,6 @@ namespace Hazel {
     }
 }
 
-
-template <>
-struct fmt::formatter<Hazel::Event> : fmt::ostream_formatter {};
+// 一定要写这个，我也不太清楚为什么，大概就是注册一下让spdlog知道这个可以用格式化
+// template <>
+// struct fmt::formatter<Hazel::Event> : fmt::ostream_formatter {};

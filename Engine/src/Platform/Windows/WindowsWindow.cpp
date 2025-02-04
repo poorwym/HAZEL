@@ -3,6 +3,7 @@
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Hazel/Events/KeyEvent.h"
 #include "Hazel/Events/MouseEvent.h"
+#include "Platform/OpenGL/OpenGLContext.h"
 
 namespace Hazel {
     // 静态变量，用于跟踪GLFW是否已初始化
@@ -60,6 +61,7 @@ namespace Hazel {
         m_Data.Width = props.Width;
         m_Data.Height = props.Height;
 
+
         HAZEL_CORE_INFO("Creating window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 
         // 如果GLFW未初始化，进行初始化
@@ -74,12 +76,9 @@ namespace Hazel {
         // 创建GLFW窗口
         m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
         
-        // 设置OpenGL上下文
-        glfwMakeContextCurrent(m_Window);
-        
-        // 初始化GLAD
-        int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-        HAZEL_CORE_ASSERT(status, "Failed to initialize Glad!");
+        m_Context = new OpenGLContext(m_Window);
+        m_Context -> Init();
+       
         
         // 设置窗口用户指针，用于回调函数中访问窗口数据
         glfwSetWindowUserPointer(m_Window, &m_Data);
@@ -90,7 +89,7 @@ namespace Hazel {
         // 窗口大小改变回调
         glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)
             {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window); // 获取窗口数据,这里有点奇怪，因为WindowData是自定义结构体，不知道为什么这样可以直接转换
                 data.Width = width;
                 data.Height = height;
 
@@ -188,9 +187,9 @@ namespace Hazel {
     // 窗口更新函数
     void WindowsWindow::OnUpdate()
     {
+
         // 处理GLFW事件
         glfwPollEvents();
-        // 交换缓冲区
-        glfwSwapBuffers(m_Window);
+        m_Context->SwapBuffers();
     }
 }

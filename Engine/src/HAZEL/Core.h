@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 // 超级煞笔的平台检测，bydIDE看不到预定义宏只好手动再定义，其实注释掉下面这些一点关系也没有
 #if defined(_WIN32) || defined(_WIN64)
     #ifndef HAZEL_PLATFORM_WINDOWS
@@ -17,16 +17,20 @@
 #endif
 
 // 定义宏，用于导入导出API
-#ifdef HAZEL_PLATFORM_WINDOWS
-    #ifdef HAZEL_BUILD_DLL
-        #define HAZEL_API __declspec(dllexport) // 导出API
+#ifdef HAZEL_DYNAMIC_LINK
+    #ifdef HAZEL_PLATFORM_WINDOWS
+        #ifdef HAZEL_BUILD_DLL
+            #define HAZEL_API __declspec(dllexport) // 导出API
+        #else
+            #define HAZEL_API __declspec(dllimport) // 导入API
+        #endif
+    #elif defined(HAZEL_PLATFORM_MACOS) || defined(HAZEL_PLATFORM_LINUX)
+        #define HAZEL_API __attribute__((visibility("default"))) // 导出API
     #else
-        #define HAZEL_API __declspec(dllimport) // 导入API
+        #error HAZEL only supports Windows, Linux and Mac!
     #endif
-#elif defined(HAZEL_PLATFORM_MACOS) || defined(HAZEL_PLATFORM_LINUX)
-    #define HAZEL_API __attribute__((visibility("default"))) // 导出API
 #else
-    #error HAZEL only supports Windows, Linux and Mac!
+    #define HAZEL_API
 #endif
 
 #ifdef HAZEL_ENABLE_ASSERTS
@@ -65,6 +69,7 @@
     #define HAZEL_ASSERT(x, ...)
     #define HAZEL_CORE_ASSERT(x, ...)
 #endif
+// 宏，用于计算二进制位
 #define BIT(x) (1 << x)
-
+// 宏，用于绑定事件
 #define HAZEL_BIND_EVENT_FN(fn) std::bind(&fn, this, std::placeholders::_1)

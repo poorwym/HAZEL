@@ -1,5 +1,9 @@
-#pragma once
-
+﻿#pragma once
+/**
+* @note:    这里非常有趣一个点是dll会删去静态库中没有被使用的函数，所以如果sandbox要使用没有被使用的函数，会出现链接错误。
+*           解决方案是module definition文件，里面定义了需要使用的函数  。 
+*           当然也可以用静态库。 
+*/
 #include "Hazel/Layer.h"
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Hazel/Events/KeyEvent.h"
@@ -11,20 +15,12 @@ namespace Hazel {
         ImGuiLayer();
         ~ImGuiLayer();
 
-        void OnAttach() override;
-        void OnDetach() override;
-        void OnUpdate() override;
-        void OnEvent(Event& event) override;
+        virtual void OnAttach() override;
+        virtual void OnDetach() override;
+        virtual void OnImGuiRender() override;
 
-    private:
-        bool OnMouseButtonPressedEvent(MouseButtonPressedEvent& e);
-        bool OnMouseButtonReleasedEvent(MouseButtonReleasedEvent& e);
-        bool OnMouseMovedEvent(MouseMovedEvent& e);
-        bool OnMouseScrolledEvent(MouseScrolledEvent& e);
-        bool OnKeyPressedEvent(KeyPressedEvent& e);
-        bool OnKeyReleasedEvent(KeyReleasedEvent& e);
-        bool OnKeyTypedEvent(KeyTypedEvent& e);
-        bool OnWindowResizeEvent(WindowResizeEvent& e);
+        void Begin();
+        void End();
 
     private:
         float m_Time = 0.0f;

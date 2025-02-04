@@ -39,15 +39,26 @@ IncludeDir = {}
 IncludeDir["GLFW"] = "Engine/vendor/GLFW/include"
 IncludeDir["Glad"] = "Engine/vendor/Glad/include"
 IncludeDir["ImGui"] = "Engine/vendor/imgui"
+IncludeDir["glm"] = "Engine/vendor/glm"
 
 -- 定义名为 "Engine" 的项目
 project "Engine"
     -- 指定项目在解决方案中的位置
     location "Engine"
+
     -- 生成的目标类型为共享库（dll）
-    kind "SharedLib"
+    -- kind "SharedLib"
+
+    -- 生成的目标类型为静态库
+    kind "StaticLib"
+
+    -- 静态运行时
+    staticruntime "Off"
+
     -- 指定使用 C++ 语言
     language "C++"
+    -- 使用 C++17 标准
+    cppdialect "C++17"
     
     -- 设置最终生成的二进制文件目录
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
@@ -71,7 +82,8 @@ project "Engine"
         "%{prj.name}/vendor/spdlog/include",
         "%{IncludeDir.GLFW}",
         "%{IncludeDir.Glad}",
-        "%{IncludeDir.ImGui}"
+        "%{IncludeDir.ImGui}",
+        "%{IncludeDir.glm}"
     }
 
     -- 确保 GLFW 在 Engine 之前构建
@@ -89,10 +101,7 @@ project "Engine"
     
     -- 针对 Windows 平台的过滤器
     filter "system:windows"
-        -- 使用 C++17 标准
-        cppdialect "C++17"
-        -- 静态运行时
-        staticruntime "Off"
+
         -- 使用最新可用的 Windows SDK
         systemversion "latest"
         
@@ -106,22 +115,20 @@ project "Engine"
         defines {
             "HAZEL_PLATFORM_WINDOWS",
             "HAZEL_BUILD_DLL",
-            "GLFW_INCLUDE_NONE"
+            "GLFW_INCLUDE_NONE", -- 禁用 GLFW 的默认包含路径，防止与Glad冲突
+            "_CRT_SECURE_NO_WARNINGS" -- 禁用 CRT 安全警告
         }
     
         -- 后置构建命令，将生成的 DLL 复制到 Sandbox 项目的可执行文件目录
-        postbuildcommands {
-            ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
-        }
+        --postbuildcommands {
+        --     ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
+        --     ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
+        -- }
 
 
 
     -- 针对 macOS 平台的过滤器
     filter "system:macosx"
-        -- 使用 C++17 标准
-        cppdialect "C++17"
-        -- 静态运行时
-        staticruntime "On"
         -- 使用最新可用的 macOS SDK
         systemversion "latest"
 
@@ -132,10 +139,10 @@ project "Engine"
         }
 
         -- 后置构建命令，创建 Sandbox 目录并复制生成的文件
-        postbuildcommands {
-            ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
-            ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
-        }
+        -- postbuildcommands {
+        --     ("{MKDIR} ../bin/" .. outputdir .. "/Sandbox"),
+        --     ("{COPYFILE} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
+        -- }
 
     -- 针对 Debug 配置的过滤器
     filter "configurations:Debug" 
@@ -182,15 +189,16 @@ project "Sandbox"
     -- 包含当前项目的所有 .h 和 .cpp 文件
     files{
         "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp"
+        "%{prj.name}/src/**.cpp",
+        "%{prj.name}/vendor/glm/glm/**.hpp",
+        "%{prj.name}/vendor/glm/glm/**.inl"
     }
 
     -- 包含目录列表
     includedirs{
         "Engine/vendor/spdlog/include",
         "Engine/src",
-        "%{IncludeDir.GLFW}",
-        "%{IncludeDir.Glad}"
+        "%{IncludeDir.glm}"
     }
 
     -- 确保 Engine 在 Sandbox 之前构建
