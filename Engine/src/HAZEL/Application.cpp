@@ -4,6 +4,7 @@
 #include <glad/glad.h>
 #include "Hazel/Input.h"
 #include "glm/glm.hpp"  
+#include "Hazel/Renderer/Shader.h"
 
 namespace Hazel {
 
@@ -20,33 +21,58 @@ namespace Hazel {
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
-        // OpenGL中顶点最好逆时针绘制
-        // VBO和IBO本质是同一个东西，都是用glGenBuffer生成的
-        glGenVertexArrays(1, &m_VertexArray);
-        glBindVertexArray(m_VertexArray);
-
-        glGenBuffers(1, &m_VertexBuffer);
-        glBindBuffer(GL_ARRAY_BUFFER, m_VertexBuffer); // GL_ARRAY_BUFFER 就是 VertexBuffer
-
+        
+        m_VertexArray.reset(VertexArray::Create());
+        
         float vertices[] = {
             -0.5f, -0.5f, 0.0f,
              0.5f, -0.5f, 0.0f,
              0.0f,  0.5f, 0.0f
         };
 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        std::shared_ptr<VertexBuffer> vbo;
+        vbo.reset(VertexBuffer::Create(vertices, sizeof(vertices)));
+		{
+			BufferLayout layout = {
+				{ ShaderDataType::Float3, "aPos" }
+			};
 
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-
-        glGenBuffers(1, &m_IndexBuffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IndexBuffer); //GL_ELEMENT_ARRAY_BUFFER 就是 IndexBuffer，很奇怪的命名
-
-        unsigned int indices[] = {
+			vbo->SetLayout(layout);
+		}
+        m_VertexArray->AddVertexBuffer(vbo);
+       
+        uint32_t indices[] = {
             0, 1, 2
         };
 
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+        std::shared_ptr<IndexBuffer> ibo;
+        ibo.reset(IndexBuffer::Create(indices, sizeof(indices) / sizeof(uint32_t)));
+        ibo->Bind(); 
+        m_VertexArray->SetIndexBuffer(ibo);
+
+        std::string vertexSrc = R"(
+            #version 330 core
+            layout(location = 0) in vec3 aPos;
+            
+            out vec3 v_Position;
+            void main()
+            {
+                v_Position = aPos;
+                gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+            }
+        )";
+
+        std::string fragmentSrc = R"(
+            #version 330 core
+            out vec4 FragColor;
+            in vec3 v_Position;
+            void main()
+            {
+                FragColor = vec4(v_Position * 0.5 + 0.5, 1.0f);
+            }
+        )";
+        m_Shader.reset(new Shader(vertexSrc, fragmentSrc));
+        // m_Shader->Bind();
     }
 
     Application::~Application() {
@@ -54,12 +80,14 @@ namespace Hazel {
 
     void Application::Run() {
         while (m_Running) { 
+
+            m_Shader->Bind();
+            m_VertexArray->Bind();
             //glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 添加背景色
             glClear(GL_COLOR_BUFFER_BIT);
 
-
             //glBindVertexArray(m_VertexArray);
-            glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
+            glDrawElements(GL_TRIANGLES, m_VertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 
             // 这里从begin开始渲染，到end结束渲染。
             for (Layer* layer : m_LayerStack) {

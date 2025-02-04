@@ -8,6 +8,9 @@
 #include "Window.h"
 #include "LayerStack.h"
 #include "Hazel/ImGui/ImGuiLayer.h"
+#include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Buffer.h"
+#include "Hazel/Renderer/VertexArray.h"
 
 namespace Hazel {
     /**
@@ -75,7 +78,8 @@ namespace Hazel {
 
     private:
         static Application* s_Instance;        // 应用程序的单例实例指针
-        unsigned int m_VertexArray,m_VertexBuffer,m_IndexBuffer;
+        std::shared_ptr<Shader> m_Shader;
+        std::shared_ptr<VertexArray> m_VertexArray;           
     };
 
     /**
