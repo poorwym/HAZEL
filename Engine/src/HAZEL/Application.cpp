@@ -1,10 +1,10 @@
 ﻿#include "hzpch.h"
 #include "Application.h"
 #include "Log.h"
-#include <glad/glad.h>
 #include "Hazel/Input.h"
 #include "glm/glm.hpp"  
 #include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Renderer.h"
 
 namespace Hazel {
 
@@ -81,13 +81,16 @@ namespace Hazel {
     void Application::Run() {
         while (m_Running) { 
 
-            m_Shader->Bind();
-            m_VertexArray->Bind();
-            //glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 添加背景色
-            glClear(GL_COLOR_BUFFER_BIT);
+            RenderCommand::SetClearColor(glm::vec4(0.1f, 0.1f, 0.1f, 1.0f));
+            RenderCommand::Clear();
 
-            //glBindVertexArray(m_VertexArray);
-            glDrawElements(GL_TRIANGLES, m_VertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+            // Render Queue
+            Renderer::BeginScene();
+
+            m_Shader->Bind();
+            Renderer::Submit(m_VertexArray);
+
+            Renderer::EndScene();
 
             // 这里从begin开始渲染，到end结束渲染。
             for (Layer* layer : m_LayerStack) {
