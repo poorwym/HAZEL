@@ -11,6 +11,8 @@
 #include "Hazel/Renderer/Shader.h"
 #include "Hazel/Renderer/Buffer.h"
 #include "Hazel/Renderer/VertexArray.h"
+#include "Hazel/Renderer/OrthographicCamera.h"
+#include "Hazel/Core/Timestep.h"
 
 namespace Hazel {
     /**
@@ -71,15 +73,13 @@ namespace Hazel {
          */
         bool OnWindowClose(WindowCloseEvent& e);
 
+    private:
         std::unique_ptr<Window> m_Window;      // 应用程序窗口的智能指针
         ImGuiLayer* m_ImGuiLayer; // 
         bool m_Running = true;                 // 应用程序运行状态标志
         LayerStack m_LayerStack;              // 层栈，用于管理应用程序的各个层
-
-    private:
-        static Application* s_Instance;        // 应用程序的单例实例指针
-        std::shared_ptr<Shader> m_Shader;
-        std::shared_ptr<VertexArray> m_VertexArray;           
+        static Application* s_Instance;        // 应用程序的单例实例指针     
+        float m_LastFrameTime = 0.0f;
     };
 
     /**
