@@ -197,8 +197,9 @@ project "Sandbox"
     -- 包含目录列表
     includedirs{
         "Engine/vendor/spdlog/include",
-        "Engine/src",
-        "%{IncludeDir.glm}"
+		"Engine/src",
+		"Engine/vendor",
+		"%{IncludeDir.glm}"
     }
 
     -- 确保 Engine 在 Sandbox 之前构建

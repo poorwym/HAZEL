@@ -84,13 +84,13 @@ namespace Hazel {
     // 可以根据事件类型调用相应的处理函数
     class HAZEL_API EventDispatcher {
         template<typename T>
-        using EventFn = std::function<bool(T&)>;
+        using EventFn = std::function<bool(T&)>; // 意味着所有用于Dispatch的函数都是接受一个T的引用，然后返回一个bool
     public:
         EventDispatcher(Event& event)
         :m_Event(event){}
 
         template<typename T>
-        bool Dispatch(EventFn<T> func){
+        bool Dispatch(EventFn<T> func){ 
             if(m_Event.GetEventType() == T::GetStaticType())
             {
                 m_Event.m_Handled = func(*(T*)&m_Event);

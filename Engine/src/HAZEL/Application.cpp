@@ -6,6 +6,8 @@
 #include "Hazel/Renderer/Shader.h"
 #include "Hazel/Renderer/Renderer.h"
 
+#include <GLFW/glfw3.h>
+
 namespace Hazel {
 
 // 这里绑定要this的原因是成员函数需要具体实例才能运行
@@ -13,7 +15,8 @@ namespace Hazel {
 
     Application* Application::s_Instance = nullptr;
 
-    Application::Application() {
+    Application::Application()         
+    {
         HAZEL_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
         m_Window = std::unique_ptr<Window>(Window::Create()); // 这里是创建一个Window
@@ -21,83 +24,23 @@ namespace Hazel {
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
-        
-        m_VertexArray.reset(VertexArray::Create());
-        
-        float vertices[] = {
-            -0.5f, -0.5f, 0.0f,
-             0.5f, -0.5f, 0.0f,
-             0.0f,  0.5f, 0.0f
-        };
 
-        std::shared_ptr<VertexBuffer> vbo;
-        vbo.reset(VertexBuffer::Create(vertices, sizeof(vertices)));
-		{
-			BufferLayout layout = {
-				{ ShaderDataType::Float3, "aPos" }
-			};
-
-			vbo->SetLayout(layout);
-		}
-        m_VertexArray->AddVertexBuffer(vbo);
-       
-        uint32_t indices[] = {
-            0, 1, 2
-        };
-
-        std::shared_ptr<IndexBuffer> ibo;
-        ibo.reset(IndexBuffer::Create(indices, sizeof(indices) / sizeof(uint32_t)));
-        ibo->Bind(); 
-        m_VertexArray->SetIndexBuffer(ibo);
-
-        std::string vertexSrc = R"(
-            #version 330 core
-            layout(location = 0) in vec3 aPos;
-            
-            out vec3 v_Position;
-            void main()
-            {
-                v_Position = aPos;
-                gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-            }
-        )";
-
-        std::string fragmentSrc = R"(
-            #version 330 core
-            out vec4 FragColor;
-            in vec3 v_Position;
-            void main()
-            {
-                FragColor = vec4(v_Position * 0.5 + 0.5, 1.0f);
-            }
-        )";
-        m_Shader.reset(new Shader(vertexSrc, fragmentSrc));
-        // m_Shader->Bind();
     }
 
     Application::~Application() {
     }
 
     void Application::Run() {
-        while (m_Running) { 
-
-            RenderCommand::SetClearColor(glm::vec4(0.1f, 0.1f, 0.1f, 1.0f));
-            RenderCommand::Clear();
-
-            // Render Queue
-            Renderer::BeginScene();
-
-            m_Shader->Bind();
-            Renderer::Submit(m_VertexArray);
-
-            Renderer::EndScene();
+        while (m_Running) {             
+            float time = static_cast<float>(glfwGetTime()); //Platform::GetTime();
+            Timestep timestep = time - m_LastFrameTime; // 这里可以相当于用右侧构造了一个Timestep对象
+            m_LastFrameTime = time;
 
             // 这里从begin开始渲染，到end结束渲染。
             for (Layer* layer : m_LayerStack) {
-                layer->OnUpdate();
+                layer->OnUpdate(timestep);
             }
-             
-
+           
             m_ImGuiLayer->Begin();
 			for (Layer* layer : m_LayerStack) {
 				layer->OnImGuiRender();
