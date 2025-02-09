@@ -45,7 +45,7 @@ inline static void DrawIndexed(const std::shared_ptr<VertexArray>& vertexArray)
 
 我觉得这样的设计主要是为了中间多一层缓冲，方便进行不同平台的维护。因为不同平台可能会有不同的RendererAPI，相同的接口方便进行不同的实现，同时又让Renderer不必接触到具体的API。（再次强调Renderer是上层的结构）
 
-RendererAPI则是一个纯虚类或者叫抽象接口，类似buffer或者vertexarray，在Platform中存在不同的实现。
+RendererAPI则是一个**纯虚类**或者叫**抽象接口**，类似buffer或者vertexarray，在Platform中存在不同的实现。
 
 这样总体的设计之后,Hazel内部已经全是自己的内部代码（或者像spdlog和glm这种跨平台的代码），具有高度可拓展和可移植性。
 

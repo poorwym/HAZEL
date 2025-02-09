@@ -29,10 +29,12 @@ workspace "Hazel"
 -- 输出目录，根据配置、系统和架构动态生成
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
--- 包含 GLFW 第三方库的 Premake 脚本
-include "Engine/vendor/GLFW"
-include "Engine/vendor/Glad"
-include "Engine/vendor/imgui"
+-- 创建一个 Dependencies 组
+group "Dependencies"
+    include "Engine/vendor/GLFW"
+    include "Engine/vendor/Glad"
+    include "Engine/vendor/imgui"
+group ""
 
 -- 定义包含目录的表
 IncludeDir = {}
@@ -40,7 +42,7 @@ IncludeDir["GLFW"] = "Engine/vendor/GLFW/include"
 IncludeDir["Glad"] = "Engine/vendor/Glad/include"
 IncludeDir["ImGui"] = "Engine/vendor/imgui"
 IncludeDir["glm"] = "Engine/vendor/glm"
-
+IncludeDir["stb_image"] = "Engine/vendor/stb_image"
 -- 定义名为 "Engine" 的项目
 project "Engine"
     -- 指定项目在解决方案中的位置
@@ -73,7 +75,12 @@ project "Engine"
     -- 包含当前项目的所有 .h 和 .cpp 文件
     files {
         "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp"
+        "%{prj.name}/src/**.cpp",
+        "%{prj.name}/vendor/stb_image/**.h",
+        "%{prj.name}/vendor/stb_image/**.cpp",
+        "%{prj.name}/vendor/glm/glm/**.hpp",
+        "%{prj.name}/vendor/glm/glm/**.inl"
+
     }
 
     -- 包含目录列表
@@ -83,7 +90,8 @@ project "Engine"
         "%{IncludeDir.GLFW}",
         "%{IncludeDir.Glad}",
         "%{IncludeDir.ImGui}",
-        "%{IncludeDir.glm}"
+        "%{IncludeDir.glm}",
+        "%{IncludeDir.stb_image}"
     }
 
     -- 确保 GLFW 在 Engine 之前构建
@@ -189,9 +197,7 @@ project "Sandbox"
     -- 包含当前项目的所有 .h 和 .cpp 文件
     files{
         "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp",
-        "%{prj.name}/vendor/glm/glm/**.hpp",
-        "%{prj.name}/vendor/glm/glm/**.inl"
+        "%{prj.name}/src/**.cpp"
     }
 
     -- 包含目录列表
