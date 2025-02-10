@@ -45,26 +45,6 @@ set_platform_definitions(${PROJECT_NAME})
 # 设置输出目录
 set_project_output_directories(${PROJECT_NAME})
 
-# 复制 Engine 库文件到 Sandbox 输出目录
-if(APPLE)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${ENGINE_LIB_DIR}/libEngine.dylib"
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-elseif(WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${ENGINE_LIB_DIR}/libEngine.dll"
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-else()
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${ENGINE_LIB_DIR}/libEngine.so"
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-endif()
 
 add_custom_command(TARGET Sandbox POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

@@ -1,5 +1,5 @@
 # CMake 项目文件结构
-生成时间: 2025-02-10 23:21:49
+生成时间: 2025-02-11 00:19:40
 
 Engine/
   CMakeLists.txt
@@ -1931,69 +1931,6 @@ glmCreateTestGTC(perf_matrix_mul_vector)
 glmCreateTestGTC(perf_matrix_transpose)
 glmCreateTestGTC(perf_vector_mul_matrix)
 
-```
-
-## vendor\imgui\CMakeLists.txt
-```cmake
-cmake_minimum_required(VERSION 3.20)
-project(imgui CXX)
-
-# 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# 创建静态库
-add_library(${PROJECT_NAME} STATIC
-    imgui.cpp
-    imgui_draw.cpp
-    imgui_widgets.cpp
-    imgui_demo.cpp
-    imgui_tables.cpp
-    imconfig.h
-    imgui.h
-    imgui_internal.h
-    imstb_rectpack.h
-    imstb_textedit.h
-    imstb_truetype.h
-)
-
-
-# 设置包含目录
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# Windows平台特定设置
-if(WIN32)
-    target_compile_definitions(${PROJECT_NAME}
-        PUBLIC
-            IMGUI_API=__declspec\(dllexport\)
-    )
-endif()
-
-# macOS平台特定设置
-if(APPLE)
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(${PROJECT_NAME}
-        PUBLIC
-            "IMGUI_API=__attribute__((visibility(\"default\")))"
-    )
-endif()
-
-# 修改输出目录设置
-set_project_output_directories(${PROJECT_NAME})
-
-# 编译选项设置
-target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<CONFIG:Debug>:-O0 -g>
-    $<$<CONFIG:Release>:-O3>
-)
-
-# 设置静态运行时库
-if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif() 
 ```
 
 ## vendor\imgui\examples\example_android_opengl3\CMakeLists.txt
