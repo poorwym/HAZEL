@@ -73,6 +73,8 @@ namespace Hazel {
          */
         bool OnWindowClose(WindowCloseEvent& e);
 
+        bool OnWindowResize(WindowResizeEvent& e);
+
     private:
         std::unique_ptr<Window> m_Window;      // 应用程序窗口的智能指针
         ImGuiLayer* m_ImGuiLayer; // 
@@ -80,6 +82,7 @@ namespace Hazel {
         LayerStack m_LayerStack;              // 层栈，用于管理应用程序的各个层
         static Application* s_Instance;        // 应用程序的单例实例指针     
         float m_LastFrameTime = 0.0f;
+        bool m_Minimized = false;
     };
 
     /**

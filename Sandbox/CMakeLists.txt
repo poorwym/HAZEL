@@ -66,6 +66,12 @@ else()
     )
 endif()
 
+add_custom_command(TARGET Sandbox POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/Sandbox/assets"
+    "$<TARGET_FILE_DIR:Sandbox>/assets"
+)
+
 # 打印项目信息
 print_project_info(${PROJECT_NAME})
 
