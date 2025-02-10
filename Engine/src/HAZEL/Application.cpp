@@ -26,7 +26,6 @@ namespace Hazel {
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
-
     }
 
     Application::~Application() {
@@ -38,16 +37,21 @@ namespace Hazel {
             Timestep timestep = time - m_LastFrameTime; // 这里可以相当于用右侧构造了一个Timestep对象
             m_LastFrameTime = time;
 
-            // 这里从begin开始渲染，到end结束渲染。
-            for (Layer* layer : m_LayerStack) {
-                layer->OnUpdate(timestep);
-            }
+            if(!m_Minimized){ // 最小化就停止渲染
+                
+                // 这里从begin开始渲染，到end结束渲染。
+				for (Layer* layer : m_LayerStack) {
+					layer->OnUpdate(timestep);
+				}
            
-            m_ImGuiLayer->Begin();
+            
+			}
+
+			m_ImGuiLayer->Begin();
 			for (Layer* layer : m_LayerStack) {
 				layer->OnImGuiRender();
 			}
-            m_ImGuiLayer->End();
+			m_ImGuiLayer->End();
 
             m_Window->OnUpdate();
         }
@@ -56,6 +60,7 @@ namespace Hazel {
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(OnWindowClose));
+        dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(OnWindowResize));
         // HAZEL_CORE_TRACE("{0}", e);
         // 这里从end开始处理事件，到这个处理结束为止。
         for (auto it = m_LayerStack.end(); it != m_LayerStack.begin();) {
@@ -83,5 +88,18 @@ namespace Hazel {
     {
         m_Running = false;
         return true;
+    }
+
+    bool Application::OnWindowResize(WindowResizeEvent& e)
+    {
+        if (e.GetWidth() == 0 || e.GetHeight() == 0) {
+            m_Minimized = true;
+            return false;
+        }
+
+        m_Minimized = false;
+
+        Renderer::OnWindowResize(e.GetWidth(), e.GetHeight());
+        return false;
     }
 }

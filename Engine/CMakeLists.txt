@@ -17,7 +17,15 @@ file(GLOB_RECURSE HAZEL_SOURCES
     "${SOURCE_DIR}/Hazel.h"
     "${SOURCE_DIR}/Hazel/Event/*.h"
     "${SOURCE_DIR}/Hazel/Event/*.cpp"
+    "${SOURCE_DIR}/Hazel/Renderer/*.h"
+    "${SOURCE_DIR}/Hazel/Renderer/*.cpp"
+    "${SOURCE_DIR}/Hazel/Core/*.h"
+    "${SOURCE_DIR}/Hazel/Core/*.cpp"
+    "${VENDOR_DIR}/stb_image/*.h"
+    "${VENDOR_DIR}/stb_image/*.cpp"
 )
+
+
 
 # 输出相对路径的源文件列表（可选，用于调试）
 foreach(SOURCE ${HAZEL_SOURCES})
@@ -26,7 +34,7 @@ foreach(SOURCE ${HAZEL_SOURCES})
 endforeach()
 # message(STATUS "Found source files: ${HAZEL_SOURCES}")
 
-add_library(Engine SHARED
+add_library(Engine STATIC
     ${HAZEL_SOURCES}
 )
 
@@ -35,9 +43,15 @@ target_include_directories(Engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/HAZEL
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Platform
     ${INCLUDE_DIR}
+    ${VENDOR_DIR}
     ${VENDOR_DIR}/GLFW/include
     ${VENDOR_DIR}/spdlog/include
+    ${VENDOR_DIR}/glm
+    ${VENDOR_DIR}/imgui
+    ${VENDOR_DIR}/stb_image
 )
+
+
 
 target_precompile_headers(Engine 
     PUBLIC
@@ -86,6 +100,7 @@ target_link_libraries(Engine
     imgui
     glfw
     glad
+    glm
 )
 
 

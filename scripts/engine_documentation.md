@@ -1,5 +1,5 @@
 # Engine 项目文件结构
-生成时间: 2025-01-23 02:02:09
+生成时间: 2025-02-11 00:19:40
 
 Engine/
   CMakeLists.txt
@@ -26,7 +26,11 @@ Engine/
       Log.cpp
       Log.h
       MouseButtonCodes.h
+      OrthographicCameraController.cpp
+      OrthographicCameraController.h
       Window.h
+      Core/
+        Timestep.h
       Events/
         ApplicationEvent.h
         Event.h
@@ -36,8 +40,38 @@ Engine/
         ImGuiBuild.cpp
         ImGuiLayer.cpp
         ImGuiLayer.h
+      Renderer/
+        Buffer.cpp
+        Buffer.h
+        GraphicsContext.h
+        OrthographicCamera.cpp
+        OrthographicCamera.h
+        RenderCommand.cpp
+        RenderCommand.h
+        Renderer.cpp
+        Renderer.h
+        RendererAPI.cpp
+        RendererAPI.h
+        Shader.cpp
+        Shader.h
+        Texture.cpp
+        Texture.h
+        VertexArray.cpp
+        VertexArray.h
     Platform/
       OpenGL/
+        OpenGLBuffer.cpp
+        OpenGLBuffer.h
+        OpenGLContext.cpp
+        OpenGLContext.h
+        OpenGLRendererAPI.cpp
+        OpenGLRendererAPI.h
+        OpenGLShader.cpp
+        OpenGLShader.h
+        OpenGLTexture.cpp
+        OpenGLTexture.h
+        OpenGLVertexArray.cpp
+        OpenGLVertexArray.h
       Windows/
         WindowsInput.cpp
         WindowsInput.h
@@ -68,7 +102,15 @@ file(GLOB_RECURSE HAZEL_SOURCES
     "${SOURCE_DIR}/Hazel.h"
     "${SOURCE_DIR}/Hazel/Event/*.h"
     "${SOURCE_DIR}/Hazel/Event/*.cpp"
+    "${SOURCE_DIR}/Hazel/Renderer/*.h"
+    "${SOURCE_DIR}/Hazel/Renderer/*.cpp"
+    "${SOURCE_DIR}/Hazel/Core/*.h"
+    "${SOURCE_DIR}/Hazel/Core/*.cpp"
+    "${VENDOR_DIR}/stb_image/*.h"
+    "${VENDOR_DIR}/stb_image/*.cpp"
 )
+
+
 
 # 输出相对路径的源文件列表（可选，用于调试）
 foreach(SOURCE ${HAZEL_SOURCES})
@@ -77,7 +119,7 @@ foreach(SOURCE ${HAZEL_SOURCES})
 endforeach()
 # message(STATUS "Found source files: ${HAZEL_SOURCES}")
 
-add_library(Engine SHARED
+add_library(Engine STATIC
     ${HAZEL_SOURCES}
 )
 
@@ -86,9 +128,15 @@ target_include_directories(Engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/HAZEL
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Platform
     ${INCLUDE_DIR}
+    ${VENDOR_DIR}
     ${VENDOR_DIR}/GLFW/include
     ${VENDOR_DIR}/spdlog/include
+    ${VENDOR_DIR}/glm
+    ${VENDOR_DIR}/imgui
+    ${VENDOR_DIR}/stb_image
 )
+
+
 
 target_precompile_headers(Engine 
     PUBLIC
@@ -137,6 +185,7 @@ target_link_libraries(Engine
     imgui
     glfw
     glad
+    glm
 )
 
 
@@ -155,6 +204,18 @@ target_link_libraries(Engine
 #include "Hazel/KeyCodes.h"
 #include "Hazel/MouseButtonCodes.h"
 #include "Hazel/ImGui/ImGuiLayer.h"
+#include "Hazel/Core/Timestep.h"
+
+// -----------Renderer----------
+#include "Hazel/Renderer/Renderer.h"
+#include "Hazel/Renderer/RenderCommand.h"
+#include "Hazel/Renderer/RendererAPI.h"
+#include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Texture.h"
+#include "Hazel/Renderer/VertexArray.h"
+#include "Hazel/Renderer/OrthographicCamera.h"
+#include "Hazel/OrthographicCameraController.h"
+// -----------------------------
 
 // -----------Entry point-----------
 #include "Hazel/EntryPoint.h"
@@ -164,12 +225,12 @@ target_link_libraries(Engine
 
 ## src\hzpch.cpp
 ```
-#include "hzpch.h"
+﻿#include "hzpch.h"
 ```
 
 ## src\hzpch.h
 ```
-#pragma once
+﻿#pragma once
 
 #include <iostream>
 #include <memory>
@@ -177,6 +238,7 @@ target_link_libraries(Engine
 #include <algorithm>
 #include <functional>
 #include <string>
+#include <array>
 #include <sstream>
 #include <vector>
 #include <unordered_map>
@@ -197,9 +259,12 @@ target_link_libraries(Engine
 ﻿#include "hzpch.h"
 #include "Application.h"
 #include "Log.h"
-#include <gl/GL.h>
 #include "Hazel/Input.h"
 #include "glm/glm.hpp"  
+#include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Renderer.h"
+
+#include <GLFW/glfw3.h>
 
 namespace Hazel {
 
@@ -208,11 +273,14 @@ namespace Hazel {
 
     Application* Application::s_Instance = nullptr;
 
-    Application::Application() {
+    Application::Application()         
+    {
         HAZEL_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
-        m_Window = std::unique_ptr<Window>(Window::Create());
-        m_Window->SetEventCallback(BIND_EVENT_FN(OnEvent));
+        m_Window = std::unique_ptr<Window>(Window::Create()); // 这里是创建一个Window
+        m_Window->SetEventCallback(BIND_EVENT_FN(OnEvent)); // 这里是绑定OnEvent函数，当窗口收到事件时，就会调用OnEvent函数。
+
+        Renderer::Init();
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
@@ -222,28 +290,36 @@ namespace Hazel {
     }
 
     void Application::Run() {
-        while (m_Running) { 
-            //glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 添加背景色
-            glClear(GL_COLOR_BUFFER_BIT);
-            // 这里从begin开始渲染，到end结束渲染。
-            for (Layer* layer : m_LayerStack) {
-                layer->OnUpdate();
-            }
-            m_Window->OnUpdate();
+        while (m_Running) {             
+            float time = static_cast<float>(glfwGetTime()); //Platform::GetTime();
+            Timestep timestep = time - m_LastFrameTime; // 这里可以相当于用右侧构造了一个Timestep对象
+            m_LastFrameTime = time;
 
-            m_ImGuiLayer->Begin();
+            if(!m_Minimized){ // 最小化就停止渲染
+                
+                // 这里从begin开始渲染，到end结束渲染。
+				for (Layer* layer : m_LayerStack) {
+					layer->OnUpdate(timestep);
+				}
+           
+            
+			}
+
+			m_ImGuiLayer->Begin();
 			for (Layer* layer : m_LayerStack) {
 				layer->OnImGuiRender();
 			}
-            m_ImGuiLayer->End();
+			m_ImGuiLayer->End();
+
+            m_Window->OnUpdate();
         }
     }
     void Application::OnEvent(Event& e)
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(OnWindowClose));
-        //HAZEL_CORE_TRACE("{0}", e);
-
+        dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(OnWindowResize));
+        // HAZEL_CORE_TRACE("{0}", e);
         // 这里从end开始处理事件，到这个处理结束为止。
         for (auto it = m_LayerStack.end(); it != m_LayerStack.begin();) {
             (*--it)->OnEvent(e); // 这里是Layer的OnEvent接口，不是Application的OnEvent接口。
@@ -253,7 +329,7 @@ namespace Hazel {
         }
 
         auto [x, y] = Input::GetMousePosition();
-        HAZEL_CORE_TRACE("{0}, {1}", x, y);
+        // HAZEL_CORE_TRACE("{0}, {1}", x, y);
     }
 
     void Application::PushLayer(Layer* layer)
@@ -271,6 +347,19 @@ namespace Hazel {
         m_Running = false;
         return true;
     }
+
+    bool Application::OnWindowResize(WindowResizeEvent& e)
+    {
+        if (e.GetWidth() == 0 || e.GetHeight() == 0) {
+            m_Minimized = true;
+            return false;
+        }
+
+        m_Minimized = false;
+
+        Renderer::OnWindowResize(e.GetWidth(), e.GetHeight());
+        return false;
+    }
 }
 
 ```
@@ -287,6 +376,11 @@ namespace Hazel {
 #include "Window.h"
 #include "LayerStack.h"
 #include "Hazel/ImGui/ImGuiLayer.h"
+#include "Hazel/Renderer/Shader.h"
+#include "Hazel/Renderer/Buffer.h"
+#include "Hazel/Renderer/VertexArray.h"
+#include "Hazel/Renderer/OrthographicCamera.h"
+#include "Hazel/Core/Timestep.h"
 
 namespace Hazel {
     /**
@@ -347,13 +441,16 @@ namespace Hazel {
          */
         bool OnWindowClose(WindowCloseEvent& e);
 
+        bool OnWindowResize(WindowResizeEvent& e);
+
+    private:
         std::unique_ptr<Window> m_Window;      // 应用程序窗口的智能指针
         ImGuiLayer* m_ImGuiLayer; // 
         bool m_Running = true;                 // 应用程序运行状态标志
         LayerStack m_LayerStack;              // 层栈，用于管理应用程序的各个层
-
-    private:
-        static Application* s_Instance;        // 应用程序的单例实例指针
+        static Application* s_Instance;        // 应用程序的单例实例指针     
+        float m_LastFrameTime = 0.0f;
+        bool m_Minimized = false;
     };
 
     /**
@@ -369,6 +466,7 @@ namespace Hazel {
 ## src\Hazel\Core.h
 ```
 ﻿#pragma once
+#include <memory>
 // 超级煞笔的平台检测，bydIDE看不到预定义宏只好手动再定义，其实注释掉下面这些一点关系也没有
 #if defined(_WIN32) || defined(_WIN64)
     #ifndef HAZEL_PLATFORM_WINDOWS
@@ -387,16 +485,20 @@ namespace Hazel {
 #endif
 
 // 定义宏，用于导入导出API
-#ifdef HAZEL_PLATFORM_WINDOWS
-    #ifdef HAZEL_BUILD_DLL
-        #define HAZEL_API __declspec(dllexport) // 导出API
+#ifdef HAZEL_DYNAMIC_LINK
+    #ifdef HAZEL_PLATFORM_WINDOWS
+        #ifdef HAZEL_BUILD_DLL
+            #define HAZEL_API __declspec(dllexport) // 导出API
+        #else
+            #define HAZEL_API __declspec(dllimport) // 导入API
+        #endif
+    #elif defined(HAZEL_PLATFORM_MACOS) || defined(HAZEL_PLATFORM_LINUX)
+        #define HAZEL_API __attribute__((visibility("default"))) // 导出API
     #else
-        #define HAZEL_API __declspec(dllimport) // 导入API
+        #error HAZEL only supports Windows, Linux and Mac!
     #endif
-#elif defined(HAZEL_PLATFORM_MACOS) || defined(HAZEL_PLATFORM_LINUX)
-    #define HAZEL_API __attribute__((visibility("default"))) // 导出API
 #else
-    #error HAZEL only supports Windows, Linux and Mac!
+    #define HAZEL_API
 #endif
 
 #ifdef HAZEL_ENABLE_ASSERTS
@@ -439,6 +541,22 @@ namespace Hazel {
 #define BIT(x) (1 << x)
 // 宏，用于绑定事件
 #define HAZEL_BIND_EVENT_FN(fn) std::bind(&fn, this, std::placeholders::_1)
+
+namespace Hazel {
+
+    /**
+    * @note:这里并不是一个单纯的重命名，实际上并不是所有的shared_ptr被替换成了Ref（比如log中）,
+    * 而是Hazel中使用的明确被定义为asset的东西，
+    * 比如VertexArray，VertexBuffer，里面的shared_ptr才会使用Ref。
+    * 下面的using也可以随时替换为模板类。
+    */
+    template<typename T>
+	using Scope = std::unique_ptr<T>;
+
+    template<typename T>
+	using Ref = std::shared_ptr<T>;
+
+}
 ```
 
 ## src\Hazel\EntryPoint.h
@@ -659,6 +777,7 @@ namespace Hazel {
  */
 #include "Hazel/Core.h"
 #include "Hazel/Events/Event.h"
+#include "Hazel/Core/Timestep.h"
 
 namespace Hazel {
 
@@ -670,7 +789,7 @@ namespace Hazel {
 
 		virtual void OnAttach() {};
 		virtual void OnDetach() {};
-		virtual void OnUpdate() {};
+		virtual void OnUpdate(Timestep ts) {};
 		virtual void OnImGuiRender() {};
 		virtual void OnEvent(Event& event) {};
 
@@ -781,8 +900,8 @@ namespace Hazel {
 #include "Log.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 namespace Hazel {
-    std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
-    std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
+	std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
+	std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
 
     void Log::Init() {
         spdlog::set_pattern("%^[%T] %n: %v%$");
@@ -812,12 +931,12 @@ namespace Hazel {
 namespace Hazel{
     class HAZEL_API Log{
     private:    
-        static std::shared_ptr<spdlog::logger> s_CoreLogger;
-        static std::shared_ptr<spdlog::logger> s_ClientLogger;
+		static std::shared_ptr<spdlog::logger> s_CoreLogger;
+		static std::shared_ptr<spdlog::logger> s_ClientLogger;
     public:
         static void Init();
-        inline static std::shared_ptr<spdlog::logger>& GetCoreLogger(){return s_CoreLogger;}
-        inline static std::shared_ptr<spdlog::logger>& GetClientLogger(){return s_ClientLogger;}
+		inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return s_CoreLogger; }
+		inline static std::shared_ptr<spdlog::logger>& GetClientLogger() { return s_ClientLogger; }
     };
 }
 
@@ -854,6 +973,126 @@ namespace Hazel{
 #define HAZEL_MOUSE_BUTTON_LEFT      HAZEL_MOUSE_BUTTON_1
 #define HAZEL_MOUSE_BUTTON_RIGHT     HAZEL_MOUSE_BUTTON_2
 #define HAZEL_MOUSE_BUTTON_MIDDLE    HAZEL_MOUSE_BUTTON_3
+```
+
+## src\Hazel\OrthographicCameraController.cpp
+```
+﻿#include "hzpch.h"
+#include "OrthographicCameraController.h"
+#include "Input.h"
+#include "KeyCodes.h"
+
+namespace Hazel {
+
+	OrthographicCameraController::OrthographicCameraController(float aspectRatio, bool rotation)
+		:m_AspectRatio(aspectRatio), m_Camera(-m_AspectRatio * m_ZoomLevel, m_AspectRatio * m_ZoomLevel, -m_ZoomLevel, m_ZoomLevel), m_AllowRotation(rotation)
+	{
+
+	}
+
+	void OrthographicCameraController::SetProjection(float left, float right, float bottom, float top)
+	{
+		m_Camera.SetProjection(left, right, bottom, top);
+	}
+
+	void OrthographicCameraController::OnUpdate(Timestep ts)
+	{
+		if (Input::IsKeyPressed(HAZEL_KEY_A))
+			m_CameraPosition.x -= m_CameraTranslationSpeed * ts;
+		else if (Input::IsKeyPressed(HAZEL_KEY_D))
+			m_CameraPosition.x += m_CameraTranslationSpeed * ts;
+
+		if (Input::IsKeyPressed(HAZEL_KEY_W))
+			m_CameraPosition.y += m_CameraTranslationSpeed * ts;
+		else if (Input::IsKeyPressed(HAZEL_KEY_S))
+			m_CameraPosition.y -= m_CameraTranslationSpeed * ts;
+
+        if (m_AllowRotation)
+        {
+			if (Input::IsKeyPressed(HAZEL_KEY_Q))
+				m_CameraRotation += m_CameraRotationSpeed * ts;
+			if (Input::IsKeyPressed(HAZEL_KEY_E))
+				m_CameraRotation -= m_CameraRotationSpeed * ts;
+
+			m_Camera.SetRotation(m_CameraRotation);
+        }
+
+		m_Camera.SetPosition(m_CameraPosition);
+
+		m_CameraTranslationSpeed = m_ZoomLevel * 5;
+	}
+	 
+	void OrthographicCameraController::OnEvent(Event& e)
+	{
+		EventDispatcher dispatcher(e);
+        dispatcher.Dispatch<MouseScrolledEvent>(HAZEL_BIND_EVENT_FN(OrthographicCameraController::OnMouseScrolled));
+        dispatcher.Dispatch<WindowResizeEvent>(HAZEL_BIND_EVENT_FN(OrthographicCameraController::OnWindowResized));
+
+	}
+
+	bool OrthographicCameraController::OnMouseScrolled(MouseScrolledEvent& e)
+	{
+		m_ZoomLevel -= e.GetYOffset() * 0.5;
+		m_ZoomLevel = std::max(m_ZoomLevel, 0.25f);
+		m_Camera.SetProjection(-m_AspectRatio * m_ZoomLevel, m_AspectRatio * m_ZoomLevel, -m_ZoomLevel, m_ZoomLevel);
+		return false;
+	}
+
+	bool OrthographicCameraController::OnWindowResized(WindowResizeEvent& e)
+	{
+        m_AspectRatio = (float)e.GetWidth() / (float)e.GetHeight();
+		m_Camera.SetProjection(-m_AspectRatio * m_ZoomLevel, m_AspectRatio * m_ZoomLevel, -m_ZoomLevel, m_ZoomLevel);
+		return false;
+	}
+
+}
+
+```
+
+## src\Hazel\OrthographicCameraController.h
+```
+﻿#pragma once
+#include "Hazel/Renderer/OrthographicCamera.h"
+#include "Hazel/Core/Timestep.h"
+#include "Hazel/Events/Event.h"
+#include "Hazel/Events/ApplicationEvent.h"
+#include "Hazel/Events/MouseEvent.h"
+
+namespace Hazel
+{
+	class OrthographicCameraController
+	{
+	public:
+		OrthographicCameraController(float aspectRatio, bool rotation = false);
+
+		void SetProjection(float left, float right, float bottom, float top);
+
+		void OnUpdate(Timestep ts);
+		void OnEvent(Event& e);
+
+		OrthographicCamera& GetCamera() { return m_Camera; }
+		const OrthographicCamera& GetCamera() const { return m_Camera; }
+
+		float GetZoomLevel() const { return m_ZoomLevel; }
+		void SetZoomLevel(float zoomLevel) { m_ZoomLevel = zoomLevel; }
+
+		void SetRotation(bool rotation) { m_AllowRotation = rotation; }
+		bool GetRotation() const { return m_AllowRotation; }
+	private:
+        bool OnMouseScrolled(MouseScrolledEvent& e);
+        bool OnWindowResized(WindowResizeEvent& e);
+	private:
+		float m_AspectRatio;
+		bool m_AllowRotation = false;
+		float m_ZoomLevel = 1.0f;
+		OrthographicCamera m_Camera;
+
+		glm::vec3 m_CameraPosition = glm::vec3(0.0f);
+		float m_CameraRotation = 0.0f;
+		float m_CameraTranslationSpeed = 5.0f;
+		float m_CameraRotationSpeed = 180.0f; 
+	};
+};
 ```
 
 ## src\Hazel\Window.h
@@ -927,6 +1166,32 @@ namespace Hazel {
         // @return 返回创建的窗口实例指针
         static Window* Create(const WindowProps& props = WindowProps());
     };
+}
+```
+
+## src\Hazel\Core\Timestep.h
+```
+﻿#pragma once
+/**
+* @note: 这里Timestep用秒为单位，本质就是个float的封装
+*/
+
+namespace Hazel {
+	class Timestep {
+	public:
+		Timestep(float time = 0.0f)
+                : m_Time(time)
+        {
+        }
+
+        operator float() const { return m_Time; }
+
+        float GetSeconds() const { return m_Time;}
+        float GetMilliseconds() const { return m_Time * 1000.0f; }
+
+	private:
+        float m_Time;
+	};
 }
 ```
 
@@ -1079,13 +1344,13 @@ namespace Hazel {
     // 可以根据事件类型调用相应的处理函数
     class HAZEL_API EventDispatcher {
         template<typename T>
-        using EventFn = std::function<bool(T&)>;
+        using EventFn = std::function<bool(T&)>; // 意味着所有用于Dispatch的函数都是接受一个T的引用，然后返回一个bool
     public:
         EventDispatcher(Event& event)
         :m_Event(event){}
 
         template<typename T>
-        bool Dispatch(EventFn<T> func){
+        bool Dispatch(EventFn<T> func){ 
             if(m_Event.GetEventType() == T::GetStaticType())
             {
                 m_Event.m_Handled = func(*(T*)&m_Event);
@@ -1105,8 +1370,8 @@ namespace Hazel {
 }
 
 // 一定要写这个，我也不太清楚为什么，大概就是注册一下让spdlog知道这个可以用格式化
-template <>
-struct fmt::formatter<Hazel::Event> : fmt::ostream_formatter {};
+// template <>
+// struct fmt::formatter<Hazel::Event> : fmt::ostream_formatter {};
 ```
 
 ## src\Hazel\Events\KeyEvent.h
@@ -1285,7 +1550,7 @@ namespace Hazel {
 
 #define IMGUI_IMPL_OPENGL_LOADER_GLAD //我感觉新版好像这句没必要
 #include "backends/imgui_impl_opengl3.cpp"
-#include "backends/imgui_impl_glfw.cpp"
+#include "backends/imgui_impl_glfw.cpp" 
 ```
 
 ## src\Hazel\ImGui\ImGuiLayer.cpp
@@ -1300,15 +1565,18 @@ namespace Hazel {
 #include "backends/imgui_impl_opengl3.h"
 namespace Hazel {
 
+
 	ImGuiLayer::ImGuiLayer()
-		: Layer("ImGuiLayer") {
+		: Layer("ImGuiLayer")
+	{
 	}
 
-	ImGuiLayer::~ImGuiLayer() {}
-	// 初始化设置ImGui所有窗口的属性，使ImGui窗口能有停靠、独立的UI窗口特性
+	ImGuiLayer::~ImGuiLayer()
+	{
+	}
 
-	void ImGuiLayer::OnAttach() {
-		// 不需要手动写ImGui的键值对应GLFW的键值、ImGui接收GLFW窗口事件，ImGui自动完成
+	void ImGuiLayer::OnAttach()
+	{
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
@@ -1323,6 +1591,7 @@ namespace Hazel {
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
 		//ImGui::StyleColorsClassic();
+
 		// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
 		ImGuiStyle& style = ImGui::GetStyle();
 		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -1339,25 +1608,30 @@ namespace Hazel {
 		ImGui_ImplOpenGL3_Init("#version 410");
 	}
 
-	void ImGuiLayer::OnDetach() {
+	void ImGuiLayer::OnDetach()
+	{
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
 	}
 
-	void ImGuiLayer::Begin() {
+	void ImGuiLayer::Begin()
+	{
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 	}
 
-	void ImGuiLayer::End() {
+	void ImGuiLayer::End()
+	{
 		ImGuiIO& io = ImGui::GetIO();
 		Application& app = Application::Get();
-		io.DisplaySize = ImVec2(app.GetWindow().GetWidth(), app.GetWindow().GetHeight());
+		io.DisplaySize = ImVec2((float)app.GetWindow().GetWidth(), (float)app.GetWindow().GetHeight());
+
 		// Rendering
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 		{
 			GLFWwindow* backup_current_context = glfwGetCurrentContext();
@@ -1366,10 +1640,13 @@ namespace Hazel {
 			glfwMakeContextCurrent(backup_current_context);
 		}
 	}
-	void ImGuiLayer::OnImGuiRender() {
+
+	void ImGuiLayer::OnImGuiRender()
+	{
 		static bool show = true;
-		ImGui::ShowDemoWindow(&show);// 当前OnImGuiRender层显示DemoUI窗口
+		ImGui::ShowDemoWindow(&show);
 	}
+
 }
 
 ```
@@ -1377,7 +1654,11 @@ namespace Hazel {
 ## src\Hazel\ImGui\ImGuiLayer.h
 ```
 ﻿#pragma once
-
+/**
+* @note:    这里非常有趣一个点是dll会删去静态库中没有被使用的函数，所以如果sandbox要使用没有被使用的函数，会出现链接错误。
+*           解决方案是module definition文件，里面定义了需要使用的函数  。 
+*           当然也可以用静态库。 
+*/
 #include "Hazel/Layer.h"
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Hazel/Events/KeyEvent.h"
@@ -1401,6 +1682,1383 @@ namespace Hazel {
 
     };
 
+}
+```
+
+## src\Hazel\Renderer\Buffer.cpp
+```
+﻿#include "hzpch.h"
+#include "Buffer.h"
+#include "Renderer.h"
+#include "Hazel/Log.h"
+
+#include "Platform/OpenGL/OpenGLBuffer.h"
+
+namespace Hazel {
+
+	VertexBuffer* VertexBuffer::Create(float* vertices, uint32_t size)
+	{
+		switch (Renderer::GetAPI())
+		{
+        case RendererAPI::API::None:
+			HAZEL_CORE_ASSERT(false, "RendererAPI::None is not supported!");
+        case RendererAPI::API::OpenGL:
+			return new OpenGLVertexBuffer(vertices, size);
+		}
+		HAZEL_CORE_ASSERT(false, "Unknown RendererAPI!");
+        return nullptr;
+	}
+
+	
+    IndexBuffer* IndexBuffer::Create(uint32_t* indices, uint32_t count)
+    {
+        switch (Renderer::GetAPI())
+        {
+        case RendererAPI::API::None :
+            HAZEL_CORE_ASSERT(false, "RendererAPI::None is not supported!");
+        case RendererAPI::API::OpenGL:
+            return new OpenGLIndexBuffer(indices, count);
+        }
+        HAZEL_CORE_ASSERT(false, "Unknown RendererAPI!");
+        return nullptr;
+    }
+}
+```
+
+## src\Hazel\Renderer\Buffer.h
+```
+﻿#pragma once
+/**
+* @note:这里是纯虚函数接口，不同平台有不同实现
+*/
+#include "Hazel/Core.h"
+
+namespace Hazel {
+    // 这里所有的BufferLayout都是跨平台的
+    enum class ShaderDataType {
+        None = 0,
+        Float, Float2, Float3, Float4,
+        Int, Int2, Int3, Int4,
+        Mat3, Mat4,
+        Bool
+    };
+
+    static uint32_t ShaderDataTypeSize(ShaderDataType type) {
+        switch (type) {
+		    case ShaderDataType::Float:  return 4;
+		    case ShaderDataType::Float2: return 4 * 2;
+		    case ShaderDataType::Float3: return 4 * 3;
+		    case ShaderDataType::Float4: return 4 * 4;
+		    case ShaderDataType::Int:    return 4;
+		    case ShaderDataType::Int2:   return 4 * 2;
+		    case ShaderDataType::Int3:   return 4 * 3;
+		    case ShaderDataType::Int4:   return 4 * 4;
+		    case ShaderDataType::Mat3:   return 4 * 3 * 3;
+		    case ShaderDataType::Mat4:   return 4 * 4 * 4;
+            case ShaderDataType::Bool:   return 1;
+        }
+        HAZEL_CORE_ASSERT(false, "Unknown ShaderDataType!");
+        return 0;
+    }
+
+    struct BufferElement {
+        std::string Name;
+        ShaderDataType Type;
+        uint32_t Size;
+        uint32_t Offset;
+        bool Normalized;
+        
+        BufferElement() = default;
+
+        BufferElement(ShaderDataType type, const std::string& name, bool normalized = false)
+            : Name(name), Type(type), Size(ShaderDataTypeSize(type)), Offset(0), Normalized(normalized) {
+        }
+
+        inline uint32_t GetComponentCount() const {
+            switch (Type) {
+                case ShaderDataType::Float:     return 1;
+                case ShaderDataType::Float2:    return 2;
+                case ShaderDataType::Float3:    return 3;
+                case ShaderDataType::Float4:    return 4;
+                case ShaderDataType::Int:       return 1;
+                case ShaderDataType::Int2:      return 2;
+                case ShaderDataType::Int3:      return 3;
+                case ShaderDataType::Int4:      return 4;
+                case ShaderDataType::Mat3:      return 3 * 3;
+                case ShaderDataType::Mat4:      return 4 * 4;
+                case ShaderDataType::Bool:      return 1;
+            }
+            HAZEL_CORE_ASSERT(false, "Unknown ShaderDataType!");
+            return 0;
+        }
+    };
+    
+    class HAZEL_API BufferLayout {
+    public:
+        BufferLayout() = default;
+
+        BufferLayout(const std::initializer_list<BufferElement>& elements) // 这里使用initializer_list,不可修改,vector可以由initializer_list直接构造 
+            : m_Elements(elements), m_Stride(0){
+            CalculateOffsetsAndStride();
+        }
+        inline const std::vector<BufferElement>& GetElements() const { return m_Elements; }
+        inline uint32_t GetStride() const { return m_Stride; } 
+
+        //这两个函数允许类似for(auto& element : layout)这样的遍历
+        std::vector<BufferElement>::iterator begin() { return m_Elements.begin(); }
+        std::vector<BufferElement>::iterator end() { return m_Elements.end(); }
+
+        //这两个函数允许类似for(const auto& element : layout)这样的遍历
+        std::vector<BufferElement>::const_iterator begin() const { return m_Elements.begin(); }
+        std::vector<BufferElement>::const_iterator end() const { return m_Elements.end(); }
+
+    private:
+        void CalculateOffsetsAndStride() {
+            uint32_t offset = 0;
+            uint32_t stride = 0;
+            for (auto& element : m_Elements) {
+                element.Offset = offset;
+                offset += element.Size;
+                stride += element.Size;
+            }
+            m_Stride = stride;
+        }
+    private:
+        std::vector<BufferElement> m_Elements;
+        uint32_t m_Stride;
+    };
+
+    // 以上内容都是跨平台的
+
+    class HAZEL_API VertexBuffer {
+    public:
+        virtual ~VertexBuffer() {}
+
+        virtual void Bind() const = 0;
+        virtual void Unbind() const = 0;
+
+        //virtual void SetData(const void* data, uint32_t size) = 0;
+
+        virtual const BufferLayout& GetLayout() const = 0;
+        virtual void SetLayout(const BufferLayout& layout) = 0;
+
+        static VertexBuffer* Create(float* vertices, uint32_t size);
+    };
+
+    class HAZEL_API IndexBuffer {
+    public:
+        virtual ~IndexBuffer() {}
+
+        virtual void Bind() const = 0;
+        virtual void Unbind() const = 0;
+
+        virtual uint32_t GetCount() const = 0;
+
+        static IndexBuffer* Create(uint32_t* indices, uint32_t count);
+    };
+}
+```
+
+## src\Hazel\Renderer\GraphicsContext.h
+```
+﻿#pragma once
+#include "Hazel/Core.h"
+namespace Hazel {
+	class HAZEL_API GraphicsContext {
+	public:
+		virtual void Init() = 0;
+		virtual void SwapBuffers() = 0;
+	};
+
+}
+```
+
+## src\Hazel\Renderer\OrthographicCamera.cpp
+```
+﻿#include "hzpch.h"
+#include "OrthographicCamera.h"
+
+#include <glm/gtc/matrix_transform.hpp>
+
+namespace Hazel{
+
+	OrthographicCamera::OrthographicCamera(float left, float right, float bottom, float top)
+		: m_ProjectionMatrix(glm::ortho(left, right, bottom, top, -1.0f, 1.0f)), m_ViewMatrix(1.0f)
+	{
+		m_ViewProjectionMatrix = m_ProjectionMatrix * m_ViewMatrix;
+	}
+
+	void OrthographicCamera::SetProjection(float left, float right, float bottom, float top)
+	{
+        m_ProjectionMatrix = glm::ortho(left, right, bottom, top, -1.0f, 1.0f);
+        m_ViewProjectionMatrix = m_ProjectionMatrix * m_ViewMatrix;
+	}
+
+	void OrthographicCamera::RecalculateViewMatrix()
+	{
+		glm::mat4 transform = glm::translate(glm::mat4(1.0f), m_Position) * // 基础的位置 
+			glm::rotate(glm::mat4(1.0f), glm::radians(m_Rotation), glm::vec3(0, 0, 1)); // 旋转
+
+		m_ViewMatrix = glm::inverse(transform); // ViewMatrix是TransformMatrix的逆矩阵
+        m_ViewProjectionMatrix = m_ProjectionMatrix * m_ViewMatrix; // glm主列,所以先p再v，directx主行，所以先v再p
+
+	}
+
+}
+
+```
+
+## src\Hazel\Renderer\OrthographicCamera.h
+```
+﻿#pragma once
+#include "Hazel/Core.h"
+#include <glm/glm.hpp>
+
+namespace Hazel {
+
+	class HAZEL_API	OrthographicCamera {
+	public:
+        OrthographicCamera(float left, float right, float bottom, float top);
+        void SetProjection(float left, float right, float bottom, float top);
+
+        void SetPosition(const glm::vec3& position) { m_Position = position; RecalculateViewMatrix(); };
+		void SetRotation(float rotation) { m_Rotation = rotation; RecalculateViewMatrix(); };
+
+        const glm::vec3& GetPosition() const { return m_Position; };
+        float GetRotation() const { return m_Rotation; };
+
+        const glm::mat4& GetProjectionMatrix() const { return m_ProjectionMatrix; };
+        const glm::mat4& GetViewMatrix() const { return m_ViewMatrix; };
+        const glm::mat4& GetViewProjectionMatrix() const { return m_ViewProjectionMatrix; };
+    private:
+        void RecalculateViewMatrix();
+	private:
+        glm::mat4 m_ProjectionMatrix;
+        glm::mat4 m_ViewMatrix;
+        glm::mat4 m_ViewProjectionMatrix; // for cache
+        
+		glm::vec3 m_Position = glm::vec3(0.0f);
+        float m_Rotation = 0.0f; // 正交投影相机一般没有3维旋转（除非博那种），一个浮点数表示z轴的旋转角度就行了
+	};
+
+}
+```
+
+## src\Hazel\Renderer\RenderCommand.cpp
+```
+﻿#include "hzpch.h"
+#include "RenderCommand.h"
+#include "Platform/OpenGL/OpenGLRendererAPI.h"
+
+namespace Hazel {
+
+	RendererAPI* RenderCommand::s_RendererAPI = new OpenGLRendererAPI();
+
+}
+```
+
+## src\Hazel\Renderer\RenderCommand.h
+```
+﻿#pragma once
+#include "RendererAPI.h"
+
+namespace Hazel {
+	class RenderCommand
+	{
+	public:
+		inline static void Init()
+		{
+			s_RendererAPI->Init();
+		}
+
+		inline static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+		{
+			s_RendererAPI->SetViewport(x, y, width, height);
+		}
+
+		inline static void SetClearColor(const glm::vec4& color)
+		{
+			s_RendererAPI->SetClearColor(color);
+		}
+
+		inline static void Clear()
+		{
+			s_RendererAPI->Clear(); 
+		}
+
+		inline static void DrawIndexed(const Ref<VertexArray>& vertexArray)
+		{
+			s_RendererAPI->DrawIndexed(vertexArray);
+		}
+	private:
+		static RendererAPI* s_RendererAPI;
+	};
+};
+```
+
+## src\Hazel\Renderer\Renderer.cpp
+```
+﻿#include "hzpch.h"
+#include "Renderer.h"
+#include "Platform/OpenGL/OpenGLShader.h"
+
+namespace Hazel {
+
+	Renderer::SceneData* Renderer::m_SceneData = new Renderer::SceneData;
+
+	void Renderer::Init()
+	{
+        RenderCommand::Init();
+	}
+
+	void Renderer::OnWindowResize(uint32_t width, uint32_t height)
+	{
+        RenderCommand::SetViewport(0, 0, width, height);
+	}
+
+	void Renderer::BeginScene(OrthographicCamera& camera)
+	{
+		m_SceneData->ViewProjectionMatrix = camera.GetViewProjectionMatrix();
+	}
+
+	void Renderer::EndScene()
+	{
+
+	}
+
+	void Renderer::Submit(const Ref<Shader>& shader, const Ref<VertexArray>& vertexArray, const glm::mat4& transform)
+	{
+        vertexArray->Bind();
+
+		shader->Bind();
+		std::dynamic_pointer_cast<OpenGLShader>(shader)->UploadUniformMat4("u_ViewProjection", m_SceneData->ViewProjectionMatrix);
+		std::dynamic_pointer_cast<OpenGLShader>(shader)->UploadUniformMat4("u_Transform", transform);
+
+		RenderCommand::DrawIndexed(vertexArray);
+	}
+
+}
+```
+
+## src\Hazel\Renderer\Renderer.h
+```
+﻿#pragma once
+#include "Hazel/Core.h"
+#include "Shader.h"
+#include "RenderCommand.h"
+#include "OrthographicCamera.h"
+
+namespace Hazel {
+
+	class HAZEL_API Renderer {
+	public:
+		static void Init();
+		static void OnWindowResize(uint32_t width, uint32_t height);
+
+		static void BeginScene(OrthographicCamera& camera);
+
+        static void EndScene();
+		 
+		static void Submit(const Ref<Shader>& shader, const Ref<VertexArray>& vertexArray, const glm::mat4& transform = glm::mat4(1.0f));
+
+		inline static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
+	private:
+		struct SceneData {
+			glm::mat4 ViewProjectionMatrix;
+		};
+
+		static SceneData* m_SceneData;
+	};
+}
+
+```
+
+## src\Hazel\Renderer\RendererAPI.cpp
+```
+﻿#include "hzpch.h"
+#include "RendererAPI.h"
+
+namespace Hazel {
+    RendererAPI::API RendererAPI::s_API = RendererAPI::API::OpenGL; //这样调用RendererAPI就会直接用OpenGLRendererAPI
+}
+```
+
+## src\Hazel\Renderer\RendererAPI.h
+```
+﻿#pragma once
+#include <glm/glm.hpp>
+#include <memory>
+#include "Hazel/Renderer/VertexArray.h"
+
+namespace Hazel {
+
+	class RendererAPI
+	{
+	public:
+		enum class API { // 这里嵌套两层的意义是区分自己定义的RendererAPI和使用的平台API，同时也更符合逻辑，使用的API自然在RendererAPI下 
+			None = 0,
+			OpenGL = 1
+		};
+	public:
+		virtual void Init() = 0;
+		virtual void Clear() = 0;
+		virtual void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) = 0;
+		virtual void SetClearColor(const glm::vec4& color) = 0;
+		virtual void DrawIndexed(const Ref<VertexArray>& vertexArray) = 0;
+
+		inline static API GetAPI() { return s_API; }
+	private:
+        static API s_API;
+	};
+}
+```
+
+## src\Hazel\Renderer\Shader.cpp
+```
+﻿#include "hzpch.h"
+#include "Shader.h"
+#include "Platform/OpenGL/OpenGLShader.h"
+#include "Renderer.h"
+
+namespace Hazel
+{
+	Ref<Shader> Shader::Create(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
+	{
+		switch (Renderer::GetAPI())
+		{
+		case RendererAPI::API::None:
+			HAZEL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
+			return nullptr;
+		case RendererAPI::API::OpenGL:
+			return std::make_shared<OpenGLShader>(name, vertexSrc, fragmentSrc);
+		}
+
+		HAZEL_CORE_ASSERT(false, "Unknown RendererAPI!");
+		return nullptr;
+	}
+	Ref<Shader> Shader::Create(const std::string& filePath)
+	{
+		switch (Renderer::GetAPI())
+		{
+		case RendererAPI::API::None:
+			HAZEL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
+			return nullptr;
+		case RendererAPI::API::OpenGL:
+			return std::make_shared<OpenGLShader>(filePath);
+		}
+
+		HAZEL_CORE_ASSERT(false, "Unknown RendererAPI!");
+		return nullptr;
+	}
+
+	void ShaderLibrary::Add(const Ref<Shader>& shader)
+	{
+		auto& name = shader->GetName();
+		HAZEL_CORE_ASSERT(!Exists(name), "Shader already exists!");
+		m_Shaders[name] = shader;
+	}
+
+	void ShaderLibrary::Add(const std::string& name, const Ref<Shader>& shader)
+	{
+		HAZEL_CORE_ASSERT(!Exists(name), "Shader already exists!");
+		m_Shaders[name] = shader;
+	}
+
+	Ref<Hazel::Shader> Hazel::ShaderLibrary::Load(const std::string& filePath)
+	{
+		auto shader = Shader::Create(filePath); 
+		Add(shader);
+		return shader;
+	}
+
+	Ref<Hazel::Shader> Hazel::ShaderLibrary::Load(const std::string& name, const std::string& filePath)
+	{
+		auto shader = Shader::Create(filePath);
+		Add(name, shader);
+		return shader;
+	}
+
+	Ref<Hazel::Shader> Hazel::ShaderLibrary::Get(const std::string& name)
+	{
+		HAZEL_CORE_ASSERT(Exists(name), "Shader not found!");
+		return m_Shaders[name];
+	}
+
+	bool ShaderLibrary::Exists(const std::string& name) const
+	{
+		return m_Shaders.find(name) != m_Shaders.end();
+	}
+}
+
+
+
+```
+
+## src\Hazel\Renderer\Shader.h
+```
+﻿#pragma once
+#include "Hazel/Core.h"
+#include <string> //pch一般只放cpp文件
+#include <unordered_map>
+
+namespace Hazel {
+
+	class HAZEL_API Shader
+	{
+    public:	
+		virtual ~Shader() = default;
+
+		virtual void Bind() const = 0;
+        virtual void Unbind() const = 0;
+
+		virtual const std::string& GetName() const = 0;
+
+		static Ref<Shader> Create(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
+		static Ref<Shader> Create(const std::string& filePath);
+	};
+
+	class ShaderLibrary {
+	public:
+		void Add(const Ref<Shader>& shader);
+		void Add(const std::string& name, const Ref<Shader>& shader); // 这个允许自定义命名
+		Ref<Shader> Load(const std::string& filePath);
+        Ref<Shader> Load(const std::string& name, const std::string& filePath);
+
+		Ref<Shader> Get(const std::string& name);
+		bool Exists(const std::string& name) const;
+	private:
+		std::unordered_map<std::string, Ref<Shader>> m_Shaders;
+	};
+}
+```
+
+## src\Hazel\Renderer\Texture.cpp
+```
+﻿#include "hzpch.h"
+#include "Hazel/Renderer/Texture.h"
+
+#include "Platform/OpenGL/OpenGLTexture.h"
+#include "Hazel/Renderer/Renderer.h"
+
+namespace Hazel {
+	Ref<Texture2D> Texture2D::Create(const std::string& path)
+	{
+		switch (Renderer::GetAPI())
+		{
+		case RendererAPI::API::None:
+			HAZEL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
+			return nullptr;
+		case RendererAPI::API::OpenGL:
+			return std::make_shared<OpenGLTexture2D>(path); //这里make_shared就不需要使用ptr.reset()了，只需要ptr = Texture2D::Create(path)
+		}
+
+		HAZEL_CORE_ASSERT(false, "Unknown RendererAPI!");
+		return nullptr;
+	}
+}
+```
+
+## src\Hazel\Renderer\Texture.h
+```
+﻿#pragma once
+#include "Hazel/Core.h"
+#include <string>
+
+namespace Hazel
+{
+    class Texture
+    {
+    public:
+        virtual ~Texture() = default;
+
+        virtual uint32_t GetWidth() const = 0;
+        virtual uint32_t GetHeight() const = 0;
+
+        //virtual void SetData(void* data, uint32_t size) = 0;
+
+        virtual void Bind(uint32_t slot = 0) const = 0;
+
+        //virtual bool operator==(const Texture& other) const = 0;
+    };
+
+
+    class Texture2D : public Texture
+    {
+    public:
+        // static Ref<Texture2D> Create(uint32_t width, uint32_t height);
+        static Ref<Texture2D> Create(const std::string& path);
+    };
+}
+```
+
+## src\Hazel\Renderer\VertexArray.cpp
+```
+﻿#include "hzpch.h"
+#include "VertexArray.h"
+#include "Platform/OpenGL/OpenGLVertexArray.h"
+#include "Renderer.h"
+
+namespace Hazel
+{
+    VertexArray* VertexArray::Create()
+    {
+        switch (Renderer::GetAPI())
+        {
+        case RendererAPI::API::None:
+            HAZEL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
+            return nullptr;
+        case RendererAPI::API::OpenGL:
+            return new OpenGLVertexArray();
+        }
+
+        HAZEL_CORE_ASSERT(false, "Unknown RendererAPI!");
+        return nullptr;
+    }
+}
+```
+
+## src\Hazel\Renderer\VertexArray.h
+```
+﻿#pragma once
+
+#include "Hazel/Core.h"
+#include "Hazel/Renderer/Buffer.h"
+#include <memory>
+
+namespace Hazel { 
+	class HAZEL_API VertexArray {
+	public:
+		virtual ~VertexArray() = default;
+
+		virtual void Bind() const = 0;
+		virtual void Unbind() const = 0;
+
+		virtual void AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) = 0;
+        virtual void SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer) = 0;
+
+		virtual const std::vector<Ref<VertexBuffer>>& GetVertexBuffer() const = 0;
+        virtual const Ref<IndexBuffer>& GetIndexBuffer() const = 0;
+
+		static VertexArray* Create();
+	};
+}
+```
+
+## src\Platform\OpenGL\OpenGLBuffer.cpp
+```
+﻿#include "hzpch.h"
+#include "OpenGLBuffer.h"
+#include <glad/glad.h>
+
+namespace Hazel {
+
+	OpenGLVertexBuffer::OpenGLVertexBuffer(float* vertices, uint32_t size)
+	{
+		glCreateBuffers(1, &m_RendererID);
+		glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+		glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+	}
+
+	OpenGLVertexBuffer::~OpenGLVertexBuffer()
+	{
+		glDeleteBuffers(1, &m_RendererID);
+	}
+
+	void OpenGLVertexBuffer::Bind() const
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+	}
+
+	void OpenGLVertexBuffer::Unbind() const
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	// ---------------------------------------------------------------------------------------------------------------
+	// -------------------------------------------IndexBuffer---------------------------------------------------------
+
+	OpenGLIndexBuffer::OpenGLIndexBuffer(uint32_t* indices, uint32_t count)
+		: m_Count(count)
+	{
+		glCreateBuffers(1, &m_RendererID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(uint32_t), indices, GL_STATIC_DRAW); //glBufferData其实接受的是size而不是count,但是我们已经知道了uint32_t,所以传输count就能知道size
+	}
+
+	OpenGLIndexBuffer::~OpenGLIndexBuffer()
+	{
+		glDeleteBuffers(1, &m_RendererID);
+	}
+
+	void OpenGLIndexBuffer::Bind() const
+	{
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
+	}
+
+	void OpenGLIndexBuffer::Unbind() const
+	{
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
+}
+
+```
+
+## src\Platform\OpenGL\OpenGLBuffer.h
+```
+﻿#pragma once
+#include "Hazel/Core.h"
+#include "Hazel/Renderer/Buffer.h"
+
+namespace Hazel {
+
+	class HAZEL_API OpenGLVertexBuffer : public VertexBuffer
+	{
+	public:
+		OpenGLVertexBuffer(float* vertices, uint32_t size);
+		virtual ~OpenGLVertexBuffer();
+
+		virtual void Bind() const override;
+		virtual void Unbind() const override;
+
+		virtual const BufferLayout& GetLayout() const override { return m_Layout; }
+		virtual void SetLayout(const BufferLayout& layout) override { m_Layout = layout; }
+
+	private:
+		uint32_t m_RendererID;
+		BufferLayout m_Layout;
+	};
+
+    class HAZEL_API OpenGLIndexBuffer : public IndexBuffer
+    {
+    public:
+        OpenGLIndexBuffer(uint32_t* indices, uint32_t count);
+        virtual ~OpenGLIndexBuffer();
+
+        virtual void Bind() const override;
+        virtual void Unbind() const override;
+
+        virtual uint32_t GetCount() const override { return m_Count; }
+
+    private:
+        uint32_t m_RendererID;
+        uint32_t m_Count;
+    };
+}
+```
+
+## src\Platform\OpenGL\OpenGLContext.cpp
+```
+﻿#include "hzpch.h"
+#include "OpenGLContext.h"
+#include "Hazel/Log.h"
+
+#include <GLFW/glfw3.h>
+#include <glad/glad.h>
+
+namespace Hazel {
+
+	OpenGLContext::OpenGLContext(GLFWwindow* windowHandle)
+		: m_WindowHandle(windowHandle)
+	{
+		HAZEL_CORE_ASSERT(windowHandle, "Window handle is null!");
+	}
+
+	void OpenGLContext::Init()
+	{
+		// 设置OpenGL上下文
+		glfwMakeContextCurrent(m_WindowHandle);
+
+		// 初始化GLAD
+		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+		HAZEL_CORE_ASSERT(status, "Failed to initialize Glad!");
+
+        HAZEL_CORE_INFO("OpenGL Info:");
+		HAZEL_CORE_INFO("Vendor: {0}", (const char*)glGetString(GL_VENDOR));
+        HAZEL_CORE_INFO("Renderer: {0}", (const char*)glGetString(GL_RENDERER));
+        HAZEL_CORE_INFO("OpenGL Version: {0}", (const char*)glGetString(GL_VERSION));
+	}
+
+	void OpenGLContext::SwapBuffers()
+	{
+		// 交换缓冲区
+		glfwSwapBuffers(m_WindowHandle);
+	}
+
+}
+```
+
+## src\Platform\OpenGL\OpenGLContext.h
+```
+﻿#pragma once
+#include "Hazel/Renderer/GraphicsContext.h"
+
+struct GLFWwindow;
+
+namespace Hazel
+{
+	class HAZEL_API OpenGLContext : public GraphicsContext
+	{
+	public:
+		OpenGLContext(GLFWwindow* windowHandle);
+
+		virtual void Init() override;
+		virtual void SwapBuffers() override;
+
+	private:
+		GLFWwindow* m_WindowHandle;
+	};
+}
+```
+
+## src\Platform\OpenGL\OpenGLRendererAPI.cpp
+```
+﻿#include "hzpch.h"
+#include "OpenGLRendererAPI.h"
+#include <glad/glad.h>
+
+namespace Hazel {
+	void OpenGLRendererAPI::Init()
+	{
+        glEnable(GL_BLEND); // 启用混合
+
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+
+	void OpenGLRendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+	{
+		glViewport(x, y, width, height);
+	}
+
+	void OpenGLRendererAPI::SetClearColor(const glm::vec4& color)
+	{
+		glClearColor(color.r, color.g, color.b, color.a);
+	}
+
+	void OpenGLRendererAPI::Clear()
+	{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
+
+	void OpenGLRendererAPI::DrawIndexed(const Ref<VertexArray>& vertexArray)
+	{
+		glDrawElements(GL_TRIANGLES, vertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	}
+
+}
+```
+
+## src\Platform\OpenGL\OpenGLRendererAPI.h
+```
+﻿#pragma once
+
+#include "Hazel/Renderer/RendererAPI.h"
+
+namespace Hazel {
+	class OpenGLRendererAPI : public RendererAPI {
+	public:
+		virtual void Init() override;
+		virtual void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;
+		virtual void SetClearColor(const glm::vec4& color) override;
+		virtual void Clear() override;
+
+		virtual void DrawIndexed(const Ref<VertexArray>& vertexArray) override;
+	};
+}
+```
+
+## src\Platform\OpenGL\OpenGLShader.cpp
+```
+﻿#include "hzpch.h"
+#include "OpenGLShader.h"
+#include "Hazel/Log.h"
+
+#include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
+namespace Hazel {
+
+	static GLenum ShaderTypeFromString(const std::string& type)
+	{
+		if (type == "vertex") {
+            return GL_VERTEX_SHADER;
+		}
+        if (type == "fragment" || type == "pixel") {
+            return GL_FRAGMENT_SHADER;
+		}
+
+        HAZEL_CORE_ASSERT(false, "Unknown shader type!");
+		return 0;
+	}
+
+	OpenGLShader::OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
+		:m_Name(name)
+	{
+		std::unordered_map<GLenum, std::string> sources;
+		sources[GL_VERTEX_SHADER] = vertexSrc;
+		sources[GL_FRAGMENT_SHADER] = fragmentSrc;
+		Compile(sources);
+	}
+
+	OpenGLShader::OpenGLShader(const std::string& filePath)
+	{
+		std::string source = ReadFile(filePath);
+		auto shaderSources = PreProcess(source);
+		Compile(shaderSources);
+
+		// assets/shaders/Texture.glsl
+		auto lastSlash = filePath.find_last_of("/\\"); // 因为windows有/或者\\，非常奇怪
+		lastSlash = lastSlash == std::string::npos ? 0 : lastSlash + 1; //有可能路径上没有slash
+		// 还需要考虑文件名有没有dot（这个真的细）
+		auto lastDot = filePath.rfind('.'); 
+		size_t count = lastDot == std::string::npos ? filePath.length() - lastSlash : lastDot - lastSlash;
+		/*
+		* @note:如果你要查找某个字符串（子串）最后一次出现的位置 → 用 rfind
+		*		如果你要查找多个字符（字符集合）中的任意一个最后一次出现的位置 → 用 find_last_of
+		*/
+        m_Name = filePath.substr(lastSlash, count);
+	} 
+
+	std::string OpenGLShader::ReadFile(const std::string& filePath)
+	{
+		std::string result;
+		// 打开着色器文件
+		// filePath: 文件路径
+		// std::ios::in: 以读取模式打开文件
+		// std::ios::binary: 以二进制模式打开文件，防止文本转换导致的问题
+		std::ifstream in(filePath, std::ios::in | std::ios::binary); // 这里只能接受2个参数
+
+		if (in) {
+			in.seekg(0, std::ios::end);
+			result.resize(in.tellg());
+			in.seekg(0, std::ios::beg);
+			in.read(&result[0], result.size());
+			in.close();
+		}
+		else {
+			HAZEL_CORE_ERROR("Could not open shader file! {0}", filePath);
+		}
+
+		return result;
+	}
+
+	std::unordered_map<GLenum, std::string> OpenGLShader::PreProcess(const std::string& source)
+	{
+		std::unordered_map<GLenum, std::string> shaderSources;
+
+        const char* typeToken = "#type";
+        size_t typeTokenLength = strlen(typeToken);
+        size_t pos = source.find(typeToken, 0);
+        while (pos != std::string::npos) // std::string::npos 表示找不到
+        {
+            size_t eol = source.find_first_of("\r\n", pos); // 找到换行符的位置, eol 是换行符的位置
+			HAZEL_CORE_ASSERT(eol != std::string::npos, "Syntax error");
+            size_t begin = pos + typeTokenLength + 1; // "#type"后面只能有一个空格, begin 是那个空格之后的位置
+			std::string type = source.substr(begin, eol - begin); //begin 到 eol 之间的内容
+            HAZEL_CORE_ASSERT(ShaderTypeFromString(type) != 0, "Invalid shader type specified");
+
+            size_t nextLinePos = source.find_first_not_of("\r\n", eol); // 找到下一个换行符的位置
+            pos = source.find(typeToken, nextLinePos); // 找到下一个 #type
+            shaderSources[ShaderTypeFromString(type)] = //
+				(pos == std::string::npos) // 如果找不到 #type, 说明是 shader 最后一个片段
+				? source.substr(nextLinePos) // 从 nextLinePos 到 最后
+				: source.substr(nextLinePos, pos - nextLinePos); // 从 nextLinePos 到 pos
+        }
+
+		return shaderSources;
+	}
+
+	void OpenGLShader::Compile(std::unordered_map<GLenum, std::string> shaderSources)
+	{
+		GLuint program = glCreateProgram(); //这里和另外一个构造函数不一样，因为如果编译失败m_RendererID仍然不为0
+		// std::vector<GLuint> glShaderIDs; // vector在堆上分配内存，貌似慢一点
+		HAZEL_CORE_ASSERT(shaderSources.size() <= 2, "We only support 2 shaders for now!");
+		std::array<GLuint, 2> glShaderIDs; // 创建一个数组，用来存储编译后的着色器
+		int glShaderIDIndex = 0;
+		for (auto& kv : shaderSources) {
+            GLenum type = kv.first;
+            const std::string& source = kv.second; 
+
+			GLuint shader = glCreateShader(type);
+
+			const GLchar* sourceCStr = (const GLchar*)source.c_str();
+			glShaderSource(shader, 1, &sourceCStr, 0);
+
+			glCompileShader(shader);
+
+			GLint isCompiled = 0;
+			glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
+			if (isCompiled == GL_FALSE)
+			{
+				GLint maxLength = 0;
+				glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
+
+				// The maxLength includes the NULL character
+				std::vector<GLchar> infoLog(maxLength);
+				glGetShaderInfoLog(shader, maxLength, &maxLength, &infoLog[0]);
+
+				// We don't need the shader anymore.
+				glDeleteShader(shader);
+
+				HAZEL_CORE_ERROR("{0}", infoLog.data());
+				HAZEL_CORE_ASSERT(false, "Shader compliation failed!");
+				break;
+			}
+			glAttachShader(program, shader);
+			glShaderIDs[glShaderIDIndex++] = shader;
+		}
+
+		// Link our program
+		glLinkProgram(program);
+
+		// Note the different functions here: glGetProgram* instead of glGetShader*.
+		GLint isLinked = 0;
+		glGetProgramiv(program, GL_LINK_STATUS, (int*)&isLinked);
+		if (isLinked == GL_FALSE)
+		{
+			GLint maxLength = 0;
+			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &maxLength);
+
+			// The maxLength includes the NULL character
+			std::vector<GLchar> infoLog(maxLength);
+			glGetProgramInfoLog(program, maxLength, &maxLength, &infoLog[0]);
+
+			// We don't need the program anymore.
+			glDeleteProgram(program);
+
+			for (auto id : glShaderIDs) {
+                glDeleteShader(id);
+			}
+
+			// HAZEL_CORE_ERROR("fragment shader compilation failure!");
+			HAZEL_CORE_ERROR("{0}", infoLog.data());
+			HAZEL_CORE_ASSERT(false, "program links error!");
+			return;
+		}
+
+		for (auto id : glShaderIDs) {
+            glDetachShader(program, id);
+		}
+
+		m_RendererID = program; // 如果m_RendererID不为0，说明编译成功
+	}
+
+	OpenGLShader::~OpenGLShader()
+	{
+		glDeleteProgram(m_RendererID);
+	}
+
+	void OpenGLShader::Bind() const
+	{
+		glUseProgram(m_RendererID);
+	}
+
+	void OpenGLShader::Unbind() const
+	{
+		glUseProgram(0);
+	}
+
+	void OpenGLShader::UploadUniformInt(const std::string& name, const int value)
+	{
+		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniform1i(location, value);
+	}
+
+	void OpenGLShader::UploadUniformFloat(const std::string& name, const float value)
+	{
+		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniform1f(location, value);
+	}
+
+	void OpenGLShader::UploadUniformFloat2(const std::string& name, const glm::vec2& values)
+	{
+		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniform2f(location, values.x, values.y);
+	}
+
+	void OpenGLShader::UploadUniformFloat3(const std::string& name, const glm::vec3& values)
+	{
+		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniform3f(location, values.x, values.y, values.z);
+	}
+
+	void OpenGLShader::UploadUniformFloat4(const std::string& name, const glm::vec4& values)
+	{
+		GLuint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniform4f(location, values.x, values.y, values.z, values.w);
+	}
+
+	void OpenGLShader::UploadUniformMat3(const std::string& name, const glm::mat3& matrix)
+	{
+		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+	}
+
+	void OpenGLShader::UploadUniformMat4(const std::string& name, const glm::mat4& matrix)
+	{
+		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+		glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+		// HAZEL_CORE_ASSERT(m_UniformLocationCache.find(name) != m_UniformLocationCache.end(), "Uniform not found!");
+	}
+
+	
+
+}
+
+```
+
+## src\Platform\OpenGL\OpenGLShader.h
+```
+﻿#pragma once
+#include "Hazel/Renderer/Shader.h"
+#include <glm/glm.hpp>
+
+namespace Hazel {
+
+	typedef unsigned int GLenum; //这里很诡异，因为我们不能在这个文件里包含glad，因为glad这个库的路径只能在Engine项目中找到，而sandbox项目使用了这个头文件
+
+	class OpenGLShader : public Shader
+	{
+	public:
+		OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
+		OpenGLShader(const std::string& filePath);
+		virtual	~OpenGLShader();
+
+		void Bind() const override;
+		void Unbind() const override;
+
+		virtual const std::string& GetName() const override { return m_Name; };
+
+		void UploadUniformInt(const std::string& name, const int values);
+
+		void UploadUniformFloat(const std::string& name, const float values);
+		void UploadUniformFloat2(const std::string& name, const glm::vec2& values);
+		void UploadUniformFloat3(const std::string& name, const glm::vec3& values);
+		void UploadUniformFloat4(const std::string& name, const glm::vec4& values);
+
+		void UploadUniformMat3(const std::string& name, const glm::mat3& matrix);
+		void UploadUniformMat4(const std::string& name, const glm::mat4& matrix);
+	private:
+		std::string ReadFile(const std::string& filePath);
+		std::unordered_map<GLenum, std::string> PreProcess(const std::string& source); // 这里是为了可能文件中有多个shader，除了vs和fs外还有几何shader
+		void Compile(std::unordered_map<GLenum, std::string> shaderSources);
+	private:
+		uint32_t m_RendererID; //使用uint32_t不用GLuint是因为跨平台需要，不必要引入过多的头文件
+		std::string m_Name;
+	};
+
+}
+
+```
+
+## src\Platform\OpenGL\OpenGLTexture.cpp
+```
+﻿#include "hzpch.h"
+
+#include "OpenGLTexture.h"
+#include <glad/glad.h>
+#include <stb_image.h>
+
+namespace Hazel {
+
+
+	OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
+		:m_Path(path)
+	{
+		int width, height, channels;
+		stbi_set_flip_vertically_on_load(1); // 翻转图片
+		stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+		HAZEL_CORE_ASSERT(data, "Failed to load image!");
+
+        m_Width = width;
+        m_Height = height;
+
+		GLenum internalFormat = 0, dataFormat = 0;
+		// internalFormat 指定了OpenGL如何在GPU内存中存储纹理数据
+		// 例如 GL_RGBA8 表示使用8位存储每个颜色分量(红、绿、蓝、透明度)
+		// 这是纹理在GPU中的内部格式
+
+		// dataFormat 指定了输入图像数据的格式
+		// 例如 GL_RGBA 表示输入数据是按照红、绿、蓝、透明度的顺序排列的
+		// 这是从CPU传输到GPU的数据格式
+		
+		if (channels == 4) {
+            internalFormat = GL_RGBA8;
+            dataFormat = GL_RGBA;
+		}
+		else if(channels == 3) {
+            internalFormat = GL_RGB8;
+            dataFormat = GL_RGB;
+		}
+
+		HAZEL_CORE_ASSERT(internalFormat & dataFormat, "Format not supported!");
+
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID); // 创建纹理
+
+        glTextureStorage2D(m_RendererID, 1, internalFormat, m_Width, m_Height); // 分配空间
+
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // 设置纹理参数,GL_TEXTURE_MIN_FILTER意思是缩小时使用线性插值
+		 // glTextureParameteri(m_rendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // 设置纹理参数,GL_TEXTURE_MAG_FILTER意思是放大时使用线性插值
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // 设置纹理参数,GL_NEAREST 使用最接近的像素
+		
+		// 更新纹理数据,参数依次为:纹理ID,mipmap级别,x偏移,y偏移,宽度,高度,像素数据格式,像素数据类型,像素数据
+        glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, dataFormat, GL_UNSIGNED_BYTE, data);
+		// 之后纹理数据都存在于GPU了
+
+        stbi_image_free(data);
+	}
+
+	OpenGLTexture2D::~OpenGLTexture2D()
+	{
+		glDeleteTextures(1, &m_RendererID);
+	}
+
+	void OpenGLTexture2D::Bind(uint32_t slot) const
+	{
+		glBindTextureUnit(slot, m_RendererID);
+	}
+
+}
+```
+
+## src\Platform\OpenGL\OpenGLTexture.h
+```
+﻿#pragma once
+#include "Hazel/Renderer/Texture.h"
+
+namespace Hazel
+{
+	class OpenGLTexture2D : public Texture2D
+    {
+    public:
+        OpenGLTexture2D(const std::string& path);
+        virtual ~OpenGLTexture2D();
+
+        virtual uint32_t GetWidth() const override { return m_Width; };
+        virtual uint32_t GetHeight() const override { return m_Height; };
+
+		//virtual void SetData(void* data, uint32_t size) = 0;
+
+		virtual void Bind(uint32_t slot = 0) const override;
+    private:
+        uint32_t m_RendererID;
+        std::string m_Path;
+        uint32_t m_Width, m_Height;
+        // glm::ivec2 m_Size;
+    };
+}
+```
+
+## src\Platform\OpenGL\OpenGLVertexArray.cpp
+```
+﻿#include "hzpch.h"
+#include "OpenGLVertexArray.h"
+#include <glad/glad.h>
+
+namespace Hazel {
+	static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type) {
+		switch (type) {
+		case ShaderDataType::Float:     return GL_FLOAT;
+		case ShaderDataType::Float2:    return GL_FLOAT;
+		case ShaderDataType::Float3:    return GL_FLOAT;
+		case ShaderDataType::Float4:    return GL_FLOAT;
+		case ShaderDataType::Mat3:      return GL_FLOAT;
+		case ShaderDataType::Mat4:      return GL_FLOAT;
+		case ShaderDataType::Int:       return GL_INT;
+		case ShaderDataType::Int2:      return GL_INT;
+		case ShaderDataType::Int3:      return GL_INT;
+		case ShaderDataType::Int4:      return GL_INT;
+		case ShaderDataType::Bool:      return GL_BOOL;
+		}
+
+		HAZEL_CORE_ASSERT(false, "Unknown ShaderDataType!");
+		return 0;
+	}
+
+	OpenGLVertexArray::OpenGLVertexArray()
+	{
+		glCreateVertexArrays(1, &m_RendererID);
+	}
+
+	OpenGLVertexArray::~OpenGLVertexArray()
+	{
+		glDeleteVertexArrays(1, &m_RendererID);
+	}
+
+	void OpenGLVertexArray::Bind() const
+	{
+		glBindVertexArray(m_RendererID);
+	}
+
+	void OpenGLVertexArray::Unbind() const
+	{
+		glBindVertexArray(0);
+	}
+
+	void OpenGLVertexArray::AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer)
+	{
+		glBindVertexArray(m_RendererID);
+        vertexBuffer->Bind();
+		// 这样两步操作后，这个vbo就会和这个vao绑定在一起，之后只需要绑定vao就可以同时绑定vbo
+
+		HAZEL_CORE_ASSERT(vertexBuffer->GetLayout().GetElements().size(), "Vertex Buffer has no layout!"); // 如果vbo没有layout，则报错
+
+		uint32_t index = 0;
+		const BufferLayout& layout = vertexBuffer->GetLayout();
+		for (const auto& element : layout) {
+			glEnableVertexAttribArray(index);
+			glVertexAttribPointer(index,
+				element.GetComponentCount(),
+				ShaderDataTypeToOpenGLBaseType(element.Type),
+				element.Normalized ? GL_TRUE : GL_FALSE,
+				layout.GetStride(),
+				(const void*)element.Offset
+			);
+			index++;
+		}
+
+		m_VertexBuffers.push_back(vertexBuffer);
+	}
+
+	void OpenGLVertexArray::SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer)
+	{
+		glBindVertexArray(m_RendererID);
+        indexBuffer->Bind();
+		// 这样两步操作后，这个ibo就会和这个vao绑定在一起，之后只需要绑定vao就可以同时绑定ibo
+
+        m_IndexBuffer = indexBuffer;
+	}
+
+}
+```
+
+## src\Platform\OpenGL\OpenGLVertexArray.h
+```
+﻿#pragma once
+#include "Hazel/Renderer/VertexArray.h"
+
+namespace Hazel {
+	class OpenGLVertexArray : public VertexArray {
+	public:
+		OpenGLVertexArray();
+		virtual ~OpenGLVertexArray() override;
+
+		virtual void Bind() const override;
+		virtual void Unbind() const override;  
+
+		virtual void AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) override;
+		virtual void SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer) override;
+
+		virtual const std::vector<Ref<VertexBuffer>>& GetVertexBuffer() const override { return m_VertexBuffers; };
+		virtual const Ref<IndexBuffer>& GetIndexBuffer() const override { return m_IndexBuffer; };
+
+
+	private:
+		// 允许一个vao拥有多个vbo，比如一个vbo存储顶点，一个vbo存储颜色，一个vbo存储纹理坐标，然后用不同的顶点属性来区分数据
+		// 这样其实和一个很大的vbo用很多的顶点属性来区分数据差不多
+		std::vector<Ref<VertexBuffer>> m_VertexBuffers; 
+        Ref<IndexBuffer> m_IndexBuffer;
+		uint32_t m_RendererID;
+	};
 }
 ```
 
@@ -1482,196 +3140,198 @@ namespace Hazel {
 #include "Hazel/Events/ApplicationEvent.h"
 #include "Hazel/Events/KeyEvent.h"
 #include "Hazel/Events/MouseEvent.h"
+#include "Platform/OpenGL/OpenGLContext.h"
 
 namespace Hazel {
-    // 静态变量，用于跟踪GLFW是否已初始化
-    static bool s_GLFWInitialized = false;
+	// 静态变量，用于跟踪GLFW是否已初始化
+	static bool s_GLFWInitialized = false;
 
-    // GLFW错误回调函数
-    static void GLFWErrorCallback(int error, const char* description)
-    {
-        HAZEL_CORE_ERROR("GLFW Error ({0}): {1}", error, description);
-    }
+	// GLFW错误回调函数
+	static void GLFWErrorCallback(int error, const char* description)
+	{
+		HAZEL_CORE_ERROR("GLFW Error ({0}): {1}", error, description);
+	}
 
-    // 创建窗口的静态工厂方法
-    Window* Window::Create(const WindowProps& props)
-    {
-        return new WindowsWindow(props);
-    }
+	// 创建窗口的静态工厂方法
+	Window* Window::Create(const WindowProps& props)
+	{
+		return new WindowsWindow(props);
+	}
 
-    // WindowsWindow构造函数
-    WindowsWindow::WindowsWindow(const WindowProps& props)
-    {
-        Init(props);
-    }
+	// WindowsWindow构造函数
+	WindowsWindow::WindowsWindow(const WindowProps& props)
+	{
+		Init(props);
+	}
 
-    // WindowsWindow析构函数
-    WindowsWindow::~WindowsWindow()
-    {
-        Shutdown();
-    }
+	// WindowsWindow析构函数
+	WindowsWindow::~WindowsWindow()
+	{
+		Shutdown();
+	}
 
-    // 设置垂直同步
-    void WindowsWindow::SetVSync(bool enabled)
-    {
-        // 根据enabled参数设置交换间隔
-        // 1表示启用垂直同步，0表示禁用
-        if (enabled)
-            glfwSwapInterval(1);
-        else
-            glfwSwapInterval(0);
+	// 设置垂直同步
+	void WindowsWindow::SetVSync(bool enabled)
+	{
+		// 根据enabled参数设置交换间隔
+		// 1表示启用垂直同步，0表示禁用
+		if (enabled)
+			glfwSwapInterval(1);
+		else
+			glfwSwapInterval(0);
 
-        // 保存VSync状态
-        m_Data.VSync = enabled;
-    }
+		// 保存VSync状态
+		m_Data.VSync = enabled;
+	}
 
-    // 获取垂直同步状态
-    bool WindowsWindow::IsVSync() const
-    {
-        return m_Data.VSync;
-    }
+	// 获取垂直同步状态
+	bool WindowsWindow::IsVSync() const
+	{
+		return m_Data.VSync;
+	}
 
-    // 初始化窗口
-    void WindowsWindow::Init(const WindowProps& props)
-    {
-        // 初始化窗口数据
-        m_Data.Title = props.Title;
-        m_Data.Width = props.Width;
-        m_Data.Height = props.Height;
+	// 初始化窗口
+	void WindowsWindow::Init(const WindowProps& props)
+	{
+		// 初始化窗口数据
+		m_Data.Title = props.Title;
+		m_Data.Width = props.Width;
+		m_Data.Height = props.Height;
 
-        HAZEL_CORE_INFO("Creating window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 
-        // 如果GLFW未初始化，进行初始化
-        if (!s_GLFWInitialized)
-        {
-            int success = glfwInit();
-            HAZEL_CORE_ASSERT(success, "Could not initialize GLFW!"); 
-            glfwSetErrorCallback(GLFWErrorCallback);
-            s_GLFWInitialized = true;
-        }
+		HAZEL_CORE_INFO("Creating window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 
-        // 创建GLFW窗口
-        m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
-        
-        // 设置OpenGL上下文
-        glfwMakeContextCurrent(m_Window);
-        
-        // 初始化GLAD
-        int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-        HAZEL_CORE_ASSERT(status, "Failed to initialize Glad!");
-        
-        // 设置窗口用户指针，用于回调函数中访问窗口数据
-        glfwSetWindowUserPointer(m_Window, &m_Data);
-        SetVSync(true);
+		// 如果GLFW未初始化，进行初始化
+		if (!s_GLFWInitialized)
+		{
+			int success = glfwInit();
+			HAZEL_CORE_ASSERT(success, "Could not initialize GLFW!");
+			glfwSetErrorCallback(GLFWErrorCallback);
+			s_GLFWInitialized = true;
+		}
 
-        // 设置GLFW回调函数
-        
-        // 窗口大小改变回调
-        glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)
-            {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
-                data.Width = width;
-                data.Height = height;
+		// 创建GLFW窗口
+		m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
 
-                WindowResizeEvent event(width, height);
-                data.EventCallback(event);
-            });
-        
-        // 窗口关闭回调
-        glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* window)
-            {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
-                WindowCloseEvent event;
-                data.EventCallback(event);
-            });
+		m_Context = new OpenGLContext(m_Window);
+		m_Context->Init();
 
-        // 键盘按键回调
-        glfwSetKeyCallback(m_Window, [](GLFWwindow* window, int key, int scancode, int action, int mods)
-            {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
-                switch (action)
-                {
-                    case GLFW_PRESS:
-                    {
-                        KeyPressedEvent event(key, 0);
-                        data.EventCallback(event);
-                        break;
-                    }
-                    case GLFW_RELEASE:
-                    {
-                        KeyReleasedEvent event(key);
-                        data.EventCallback(event);
-                        break;
-                    }
-                    case GLFW_REPEAT:
-                    {
-                        KeyPressedEvent event(key, 1);
-                        data.EventCallback(event);
-                        break;
-                    }
-                }
-            });
 
-        // 字符输入回调
-        glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int keycode) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+		// 设置窗口用户指针，用于回调函数中访问窗口数据
+		glfwSetWindowUserPointer(m_Window, &m_Data);
+		SetVSync(true);
 
-            KeyTypedEvent event(keycode);
-            data.EventCallback(event);
-            });
-        
-        // 鼠标按钮回调
-        glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* window, int button, int action, int mods)
-            {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
-                switch (action)
-                {
-                    case GLFW_PRESS:
-                    {
-                        MouseButtonPressedEvent event(button);
-                        data.EventCallback(event);
-                        break;
-                    }
-                    case GLFW_RELEASE:
-                    {
-                        MouseButtonReleasedEvent event(button);
-                        data.EventCallback(event);
-                        break;
-                    }
-                }
-            });
-        
-        // 鼠标滚轮回调
-        glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double xOffset, double yOffset)
-            {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
-                MouseScrolledEvent event((float)xOffset, (float)yOffset);
-                data.EventCallback(event);
-            });
+		// 设置GLFW回调函数
 
-        // 鼠标位置回调
-        glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double xPos, double yPos)
-            {
-                WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
-                MouseMovedEvent event((float)xPos, (float)yPos);
-                data.EventCallback(event);
-            });
-    }
+		// 窗口大小改变回调
+		glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)
+			{
+				// 这里已经搞懂了，前面有一句glfwSetWindowUserPointer(m_Window, &m_Data);意思是把窗口的指针设为m_Data的指针
+				// 所以glfwGetWindowUserPointer就会返回m_Data的指针
+				WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window); // 获取窗口数据,这里有点奇怪，因为WindowData是自定义结构体，不知道为什么这样可以直接转换
 
-    // 关闭窗口
-    void WindowsWindow::Shutdown()
-    {
-        glfwDestroyWindow(m_Window);
-    }
+				data.Width = width;
+				data.Height = height;
 
-    // 窗口更新函数
-    void WindowsWindow::OnUpdate()
-    {
-        // 处理GLFW事件
-        glfwPollEvents();
-        // 交换缓冲区
-        glfwSwapBuffers(m_Window);
-    }
+				WindowResizeEvent event(width, height);
+				HAZEL_CORE_WARN("{0}, {1}", width, height);
+				data.EventCallback(event);
+			});
+
+		// 窗口关闭回调
+		glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* window)
+			{
+				WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+				WindowCloseEvent event;
+				data.EventCallback(event);
+			});
+
+		// 键盘按键回调
+		glfwSetKeyCallback(m_Window, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+			{
+				WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+				switch (action)
+				{
+				case GLFW_PRESS:
+				{
+					KeyPressedEvent event(key, 0);
+					data.EventCallback(event);
+					break;
+				}
+				case GLFW_RELEASE:
+				{
+					KeyReleasedEvent event(key);
+					data.EventCallback(event);
+					break;
+				}
+				case GLFW_REPEAT:
+				{
+					KeyPressedEvent event(key, 1);
+					data.EventCallback(event);
+					break;
+				}
+				}
+			});
+
+		// 字符输入回调
+		glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int keycode) {
+			WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+
+			KeyTypedEvent event(keycode);
+			data.EventCallback(event);
+			});
+
+		// 鼠标按钮回调
+		glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* window, int button, int action, int mods)
+			{
+				WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+				switch (action)
+				{
+				case GLFW_PRESS:
+				{
+					MouseButtonPressedEvent event(button);
+					data.EventCallback(event);
+					break;
+				}
+				case GLFW_RELEASE:
+				{
+					MouseButtonReleasedEvent event(button);
+					data.EventCallback(event);
+					break;
+				}
+				}
+			});
+
+		// 鼠标滚轮回调
+		glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double xOffset, double yOffset)
+			{
+				WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+				MouseScrolledEvent event((float)xOffset, (float)yOffset);
+				data.EventCallback(event);
+			});
+
+		// 鼠标位置回调
+		glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double xPos, double yPos)
+			{
+				WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+				MouseMovedEvent event((float)xPos, (float)yPos);
+				data.EventCallback(event);
+			});
+	}
+
+	// 关闭窗口
+	void WindowsWindow::Shutdown()
+	{
+		glfwDestroyWindow(m_Window);
+	}
+
+	// 窗口更新函数
+	void WindowsWindow::OnUpdate()
+	{
+		// 处理GLFW事件
+		glfwPollEvents();
+		m_Context->SwapBuffers();
+	}
 }
 ```
 
@@ -1680,6 +3340,7 @@ namespace Hazel {
 ﻿#pragma once
 
 #include "Hazel/Window.h"
+#include "Hazel/Renderer/GraphicsContext.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -1708,6 +3369,7 @@ namespace Hazel {
         virtual void Shutdown();
     private:
         GLFWwindow* m_Window;
+        GraphicsContext* m_Context;
 
         struct WindowData {
             std::string Title;
